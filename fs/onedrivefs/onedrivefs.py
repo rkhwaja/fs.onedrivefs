@@ -87,7 +87,7 @@ class OneDriveFS(FS):
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
 		itemRequest = self.client.item(path=path)
 		for namespace in info:
-			for name, value in info[namespace]:
+			for name, value in info[namespace].items():
 				if namespace == "basic":
 					if name == "name":
 						# change name - does this include the directory?
