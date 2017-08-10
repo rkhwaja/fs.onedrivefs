@@ -2,17 +2,16 @@
 
 from io import BytesIO
 from itertools import chain
-from pprint import pformat
+from time import mktime
 
 from fs.base import FS
-from fs.errors import DirectoryExpected, FileExpected, NoSysPath, ResourceNotFound, ResourceReadOnly
+from fs.errors import DirectoryExpected, FileExpected, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname, join
 from fs.subfs import SubFS
-from onedrivesdk import AuthProvider, Folder, HttpProvider, Item, ItemsCollectionPage, OneDriveClient
+from onedrivesdk import AuthProvider, Folder, HttpProvider, Item, OneDriveClient
 from onedrivesdk.error import OneDriveError
-from onedrivesdk.session import Session
 from temp_utils.contextmanagers import temp_file
 
 class OneDriveFS(FS):
@@ -37,34 +36,56 @@ class OneDriveFS(FS):
 	def __repr__(self):
 		return f"<OneDriveFS root={self.root}>"
 
-	def _itemInfo(self, item):
+	def _itemInfo(self, item): # pylint: disable=no-self-use
 		# Looks like the dates returned are UTC
-		result = Info({
+		rawInfo = {
 			"basic": {
 				"name": item.name,
 				"is_dir": item.folder is not None,
 			},
 			"details": {
 				"accessed": None, # not supported by OneDrive
-				"created": item.created_date_time,
+				"created": mktime(item.created_date_time.timetuple()),
 				"metadata_changed": None, # not supported by OneDrive
-				"modified": item.last_modified_date_time,
+				"modified": mktime(item.last_modified_date_time.timetuple()),
 				"size": item.size,
 				"type": 1 if item.folder is not None else 0,
 			}
-		}, to_datetime=lambda x: x)
-		return result
+		}
+		if item.photo is not None:
+			rawInfo.update({"photo":
+				{
+					"camera_make": item.photo.camera_make,
+					"camera_model": item.photo.camera_model,
+					"exposure_denominator": item.photo.exposure_denominator,
+					"exposure_numerator": item.photo.exposure_numerator,
+					"focal_length": item.photo.focal_length,
+					"f_number": item.photo.f_number,
+					"taken_date_time": item.photo.taken_date_time,
+					"iso": item.photo.iso				
+				}})
+		if item.location is not None:
+			rawInfo.update({"location":
+				{
+					"altitude": item.location.altitude,
+					"latitude": item.location.latitude,
+					"longitude": item.location.longitude
+				}})
+		if item.tags is not None:
+			rawInfo.update({"tags":
+				{
+					"tags": list(item.tags.tags)
+				}})
+		return Info(rawInfo)
 
 	def getinfo(self, path, namespaces=None):
-		print(f"getinfo({path}, {namespaces})")
 		try:
 			item = self.client.item(path=join(self.root, path)).get()
 		except OneDriveError as e:
 			raise ResourceNotFound(path=path, exc=e)
 		return self._itemInfo(item)
 
-	def setinfo(self, path, info):
-		print(f"setinfo({path}, {info})")
+	def setinfo(self, path, info): # pylint: disable=too-many-branches
 		itemRequest = self.client.item(path=join(self.root, path))
 		for namespace in info:
 			for name, value in info[namespace]:
@@ -98,7 +119,6 @@ class OneDriveFS(FS):
 					pass
 
 	def listdir(self, path):
-		print(f"listdir({path})")
 		return [x.name for x in self.scandir(path)]
 
 	def makedir(self, path, permissions=None, recreate=False):
@@ -123,7 +143,7 @@ class OneDriveFS(FS):
 		mode = Mode(mode)
 		if mode.reading:
 			try:
-				item = itemRequest.get()
+				_ = itemRequest.get()
 			except OneDriveError as e:
 				raise ResourceNotFound(path=path, exc=e)
 			with temp_file() as localPath:
@@ -152,7 +172,6 @@ class OneDriveFS(FS):
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
-		print(f"scandir({path})")
 		itemRequest = self.client.item(path=join(self.root, path))
 		try:
 			item = itemRequest.get()
