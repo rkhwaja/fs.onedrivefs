@@ -8,16 +8,15 @@ from fs.base import FS
 from fs.errors import DirectoryExpected, FileExpected, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
 from fs.mode import Mode
-from fs.path import basename, dirname, join
+from fs.path import basename, dirname
 from fs.subfs import SubFS
 from onedrivesdk import AuthProvider, Folder, HttpProvider, Item, OneDriveClient
 from onedrivesdk.error import OneDriveError
 from temp_utils.contextmanagers import temp_file
 
 class OneDriveFS(FS):
-	def __init__(self, clientId, sessionType, root="/"):
+	def __init__(self, clientId, sessionType):
 		super().__init__()
-		self.root = root
 		httpProvider = HttpProvider()
 		authProvider = AuthProvider(http_provider=httpProvider, client_id=clientId, scopes=["wl.signin", "wl.offline_access", "onedrive.readwrite"], session_type=sessionType)
 		self.client = OneDriveClient("https://api.onedrive.com/v1.0/", authProvider, httpProvider)
@@ -34,7 +33,7 @@ class OneDriveFS(FS):
 		}
 
 	def __repr__(self):
-		return f"<OneDriveFS root={self.root}>"
+		return f"<OneDriveFS>"
 
 	def _itemInfo(self, item): # pylint: disable=no-self-use
 		# Looks like the dates returned are UTC
@@ -62,7 +61,7 @@ class OneDriveFS(FS):
 					"focal_length": item.photo.focal_length,
 					"f_number": item.photo.f_number,
 					"taken_date_time": item.photo.taken_date_time,
-					"iso": item.photo.iso				
+					"iso": item.photo.iso
 				}})
 		if item.location is not None:
 			rawInfo.update({"location":
@@ -80,13 +79,13 @@ class OneDriveFS(FS):
 
 	def getinfo(self, path, namespaces=None):
 		try:
-			item = self.client.item(path=join(self.root, path)).get()
+			item = self.client.item(path=path).get()
 		except OneDriveError as e:
 			raise ResourceNotFound(path=path, exc=e)
 		return self._itemInfo(item)
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
-		itemRequest = self.client.item(path=join(self.root, path))
+		itemRequest = self.client.item(path=path)
 		for namespace in info:
 			for name, value in info[namespace]:
 				if namespace == "basic":
@@ -123,7 +122,7 @@ class OneDriveFS(FS):
 
 	def makedir(self, path, permissions=None, recreate=False):
 		parentDir = dirname(path)
-		itemRequest = self.client.item(path=join(self.root, parentDir))
+		itemRequest = self.client.item(path=parentDir)
 		try:
 			item = itemRequest.get()
 		except OneDriveError as e:
@@ -139,7 +138,7 @@ class OneDriveFS(FS):
 		return SubFS(self, path)
 
 	def openbin(self, path, mode="r", buffering=-1, **options):
-		itemRequest = self.client.item(path=join(self.root, path))
+		itemRequest = self.client.item(path=path)
 		mode = Mode(mode)
 		if mode.reading:
 			try:
@@ -159,20 +158,20 @@ class OneDriveFS(FS):
 			raise ResourceReadOnly(path=path)
 
 	def remove(self, path):
-		itemRequest = self.client.item(path=join(self.root, path))
+		itemRequest = self.client.item(path=path)
 		if itemRequest.get().folder is not None:
 			raise FileExpected(path=path)
 		itemRequest.delete()
 
 	def removedir(self, path):
-		itemRequest = self.client.item(path=join(self.root, path))
+		itemRequest = self.client.item(path=path)
 		if itemRequest.get().folder is None:
 			raise DirectoryExpected(path=path)
 		itemRequest.delete()
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
-		itemRequest = self.client.item(path=join(self.root, path))
+		itemRequest = self.client.item(path=path)
 		try:
 			item = itemRequest.get()
 		except OneDriveError as e:
