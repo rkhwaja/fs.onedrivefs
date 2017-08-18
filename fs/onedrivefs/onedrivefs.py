@@ -2,7 +2,6 @@
 
 from io import BytesIO
 from itertools import chain
-from time import mktime
 
 from fs.base import FS
 from fs.errors import DirectoryExpected, FileExpected, ResourceNotFound, ResourceReadOnly
@@ -10,7 +9,8 @@ from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
-from onedrivesdk import AuthProvider, Folder, HttpProvider, Item, OneDriveClient
+from fs.time import datetime_to_epoch, epoch_to_datetime
+from onedrivesdk import AuthProvider, FileSystemInfo, Folder, HttpProvider, Item, OneDriveClient
 from onedrivesdk.error import OneDriveError
 from temp_utils.contextmanagers import temp_file
 
@@ -36,7 +36,8 @@ class OneDriveFS(FS):
 		return f"<OneDriveFS>"
 
 	def _itemInfo(self, item): # pylint: disable=no-self-use
-		# Looks like the dates returned are UTC
+		# Looks like the dates returned directly in item.file_system_info (i.e. not file_system_info) are UTC naive-datetimes
+		# We're supposed to return timestamps, which the framework can convert to UTC aware-datetimes
 		rawInfo = {
 			"basic": {
 				"name": item.name,
@@ -44,9 +45,9 @@ class OneDriveFS(FS):
 			},
 			"details": {
 				"accessed": None, # not supported by OneDrive
-				"created": mktime(item.created_date_time.timetuple()),
+				"created": datetime_to_epoch(item.file_system_info.created_date_time),
 				"metadata_changed": None, # not supported by OneDrive
-				"modified": mktime(item.last_modified_date_time.timetuple()),
+				"modified": datetime_to_epoch(item.file_system_info.last_modified_date_time),
 				"size": item.size,
 				"type": 1 if item.folder is not None else 0,
 			}
@@ -86,13 +87,23 @@ class OneDriveFS(FS):
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
 		itemRequest = self.client.item(path=path)
+		try:
+			existingItem = itemRequest.get()
+		except OneDriveError as e:
+			raise ResourceNotFound(path=path, exc=e)
+
+		itemUpdate = Item()
+		itemUpdate.id = existingItem.id
+		itemUpdate.file_system_info = FileSystemInfo()
+
 		for namespace in info:
 			for name, value in info[namespace].items():
 				if namespace == "basic":
 					if name == "name":
 						# change name - does this include the directory?
 						# how do you move an item via pyfilesystem otherwise?
-						itemRequest.name = value
+						assert False, "Not sure if this works yet"
+						itemUpdate.name = value
 					elif name == "is_dir":
 						# can't change this - must be an error in the framework
 						assert False, "Can't change an item to and from directory"
@@ -102,11 +113,13 @@ class OneDriveFS(FS):
 					if name == "accessed":
 						pass # not supported by OneDrive
 					elif name == "created":
-						itemRequest.created_date_time = value
+						# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
+						itemUpdate.file_system_info.created_date_time = epoch_to_datetime(value).replace(tzinfo=None)
 					elif name == "metadata_changed":
 						pass # not supported by OneDrive
 					elif name == "modified":
-						itemRequest.last_modified_date_time = value
+						# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
+						itemUpdate.file_system_info.last_modified_date_time = epoch_to_datetime(value).replace(tzinfo=None)
 					elif name == "size":
 						assert False, "Can't change item size"
 					elif name == "type":
@@ -116,6 +129,7 @@ class OneDriveFS(FS):
 				else:
 					# ignore namespaces that we don't recognize
 					pass
+		itemRequest.update(itemUpdate)
 
 	def listdir(self, path):
 		return [x.name for x in self.scandir(path)]
