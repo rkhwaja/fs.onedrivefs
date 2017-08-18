@@ -100,10 +100,7 @@ class OneDriveFS(FS):
 			for name, value in info[namespace].items():
 				if namespace == "basic":
 					if name == "name":
-						# change name - does this include the directory?
-						# how do you move an item via pyfilesystem otherwise?
-						assert False, "Not sure if this works yet"
-						itemUpdate.name = value
+						assert False, "Unexpected to try and change the name this way"
 					elif name == "is_dir":
 						# can't change this - must be an error in the framework
 						assert False, "Can't change an item to and from directory"
