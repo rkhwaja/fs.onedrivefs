@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-from io import BytesIO
+from io import BytesIO, RawIOBase, UnsupportedOperation
 from itertools import chain
+from os import close, remove, write
+from tempfile import mkstemp
 
 from fs.base import FS
-from fs.errors import DirectoryExpected, FileExpected, ResourceNotFound, ResourceReadOnly
+from fs.errors import DestinationExists, DirectoryExpected, FileExpected, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
@@ -13,6 +15,27 @@ from fs.time import datetime_to_epoch, epoch_to_datetime
 from onedrivesdk import AuthProvider, FileSystemInfo, Folder, HttpProvider, Item, OneDriveClient
 from onedrivesdk.error import OneDriveError
 from temp_utils.contextmanagers import temp_file
+
+class TempFileWrapper(IOBase):
+	def __init__(self, client, path):
+		super().__init__()
+		self.client = client
+		self.uploadPath = path
+		self.fileHandle, self.localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
+
+	def write(self, b):
+		write(self.fileHandle, b)
+
+	def readinto(self, b):
+		# we're write-only
+		raise UnsupportedOperation()
+
+	def close(self):
+		close(self.fileHandle)
+		# upload to OneDrive
+		item = self.client.item(path=self.uploadPath).upload(self.localPath)
+		remove(self.localPath)
+		super().close()
 
 class OneDriveFS(FS):
 	def __init__(self, clientId, sessionType):
@@ -28,7 +51,7 @@ class OneDriveFS(FS):
 			"max_path_length": None, # don't know what the limit is
 			"max_sys_path_length": None, # there's no syspath
 			"network": True,
-			"read_only": True, # at least until openbin is fully implemented
+			"read_only": False, # at least until openbin is fully implemented
 			"supports_rename": False # since we don't have a syspath...
 		}
 
@@ -149,8 +172,12 @@ class OneDriveFS(FS):
 		return SubFS(self, path)
 
 	def openbin(self, path, mode="r", buffering=-1, **options):
-		itemRequest = self.client.item(path=path)
 		mode = Mode(mode)
+		if mode.exclusive and self.exists(path):
+			raise FileExists(path=path)
+		if self.exists(path) and not self.isfile(path):
+			raise FileExpected(path=path)
+		itemRequest = self.client.item(path=path)
 		if mode.reading:
 			try:
 				_ = itemRequest.get()
@@ -162,7 +189,7 @@ class OneDriveFS(FS):
 					existingData = f.read()
 			return BytesIO(existingData)
 		elif mode.writing:
-			raise ResourceReadOnly(path=path)
+			return TempFileWrapper(client=self.client, path=path)
 		elif mode.appending:
 			raise ResourceReadOnly(path=path)
 		else:
