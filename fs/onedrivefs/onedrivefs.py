@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-from io import BytesIO, RawIOBase, UnsupportedOperation
+from io import BytesIO
 from itertools import chain
-from os import close, remove, write
+from os import fdopen, remove
 from tempfile import mkstemp
 
 from fs.base import FS
-from fs.errors import DestinationExists, DirectoryExpected, FileExpected, ResourceNotFound, ResourceReadOnly
+from fs.errors import DirectoryExpected, FileExists, FileExpected, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
+from fs.iotools import RawWrapper
 from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
@@ -16,26 +17,19 @@ from onedrivesdk import AuthProvider, FileSystemInfo, Folder, HttpProvider, Item
 from onedrivesdk.error import OneDriveError
 from temp_utils.contextmanagers import temp_file
 
-class TempFileWrapper(IOBase):
+# onedrivesdk only uploads from a file path
+class UploadOnClose(RawWrapper):
 	def __init__(self, client, path):
-		super().__init__()
 		self.client = client
 		self.uploadPath = path
-		self.fileHandle, self.localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
-
-	def write(self, b):
-		write(self.fileHandle, b)
-
-	def readinto(self, b):
-		# we're write-only
-		raise UnsupportedOperation()
+		fileHandle, self.localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
+		super().__init__(f=fdopen(fileHandle, mode="wb"))
 
 	def close(self):
-		close(self.fileHandle)
+		super().close() # close the file so that it's readable for upload
 		# upload to OneDrive
-		item = self.client.item(path=self.uploadPath).upload(self.localPath)
+		self.client.item(path=self.uploadPath).upload(self.localPath)
 		remove(self.localPath)
-		super().close()
 
 class OneDriveFS(FS):
 	def __init__(self, clientId, sessionType):
@@ -189,7 +183,7 @@ class OneDriveFS(FS):
 					existingData = f.read()
 			return BytesIO(existingData)
 		elif mode.writing:
-			return TempFileWrapper(client=self.client, path=path)
+			return UploadOnClose(client=self.client, path=path)
 		elif mode.appending:
 			raise ResourceReadOnly(path=path)
 		else:
