@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from io import BytesIO
+from io import SEEK_END
 from itertools import chain
-from os import fdopen, remove
+from os import close, fdopen, remove, write
 from tempfile import mkstemp
 
 from fs.base import FS
@@ -19,16 +19,29 @@ from temp_utils.contextmanagers import temp_file
 
 # onedrivesdk only uploads from a file path
 class UploadOnClose(RawWrapper):
-	def __init__(self, client, path):
+	def __init__(self, client, path, mode, localPath):
+		print("UploadOnClose.__init__")
 		self.client = client
-		self.uploadPath = path
-		fileHandle, self.localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
-		super().__init__(f=fdopen(fileHandle, mode="wb"))
+		self.path = path
+		self.mode = mode
+		fileHandle, localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
+		close(fileHandle)
+		if self.mode.reading and not self.mode.truncate:
+			try:
+				self.client.item(path=path).download(localPath)
+			except OneDriveError as e:
+				pass
+		super().__init__(f=open(self.localPath, mode=mode))
+		if self.mode.appending:
+			# seek to the end
+			self.seek(len(initialData))
 
 	def close(self):
+		print("UploadOnClose.close")
 		super().close() # close the file so that it's readable for upload
-		# upload to OneDrive
-		self.client.item(path=self.uploadPath).upload(self.localPath)
+		if self.mode.writing:
+			# upload to OneDrive
+			self.client.item(path=self.uploadPath).upload(self.localPath)
 		remove(self.localPath)
 
 class OneDriveFS(FS):
@@ -168,26 +181,12 @@ class OneDriveFS(FS):
 	def openbin(self, path, mode="r", buffering=-1, **options):
 		mode = Mode(mode)
 		if mode.exclusive and self.exists(path):
-			raise FileExists(path=path)
-		if self.exists(path) and not self.isfile(path):
-			raise FileExpected(path=path)
-		itemRequest = self.client.item(path=path)
-		if mode.reading:
-			try:
-				_ = itemRequest.get()
-			except OneDriveError as e:
-				raise ResourceNotFound(path=path, exc=e)
-			with temp_file() as localPath:
-				existingData = itemRequest.download(localPath)
-				with open(localPath, "rb") as f:
-					existingData = f.read()
-			return BytesIO(existingData)
-		elif mode.writing:
-			return UploadOnClose(client=self.client, path=path)
-		elif mode.appending:
-			raise ResourceReadOnly(path=path)
-		else:
-			raise ResourceReadOnly(path=path)
+			raise FileExists(path)
+		elif mode.reading and not mode.create and not self.exists(path):
+			raise ResourceNotFound(path)
+		elif self.isdir(path):
+			raise FileExpected(path)
+		return UploadOnClose(client=self.client, path=path, mode=mode, localPath=localPath)
 
 	def remove(self, path):
 		itemRequest = self.client.item(path=path)
