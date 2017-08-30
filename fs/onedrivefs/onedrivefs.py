@@ -6,15 +6,16 @@ from os import close, fdopen, remove, write
 from tempfile import mkstemp
 
 from fs.base import FS
-from fs.errors import DirectoryExpected, FileExists, FileExpected, ResourceNotFound, ResourceReadOnly
+from fs.errors import DestinationExists, DirectoryExpected, FileExists, FileExpected, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
 from fs.iotools import RawWrapper
 from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
-from onedrivesdk import AuthProvider, FileSystemInfo, Folder, HttpProvider, Item, OneDriveClient
+from onedrivesdk import AuthProvider, FileSystemInfo, Folder, HttpProvider, Item, ItemReference, OneDriveClient
 from onedrivesdk.error import OneDriveError
+from temp_utils.contextmanagers import temp_file
 
 # onedrivesdk only uploads from a file path
 class UploadOnClose(RawWrapper):
@@ -217,3 +218,27 @@ class OneDriveFS(FS):
 			result = chain(result, (self._itemInfo(x) for x in children))
 
 		return result
+
+	def move(self, src_path, dst_path, overwrite=False):
+		if not overwrite and self.exists(dst_path):
+			raise DestinationExists(dst_path)
+		srcRequest = self.client.item(path=src_path)
+
+		itemUpdate = Item()
+
+		newFilename = basename(dst_path)
+		if not self.isdir(dst_path) and newFilename != basename(src_path):
+			itemUpdate.name = newFilename
+
+		parentDir = dirname(dst_path)
+		if parentDir != dirname(src_path):
+			try:
+				parentDirItem = self.client.item(path=parentDir).get()
+			except OneDriveError as e:
+				raise ResourceNotFound(path=parentDir, exc=e)
+
+			ref = ItemReference()
+			ref.id = parentDirItem.id
+			itemUpdate.parent_reference = ref
+
+		srcRequest.update(itemUpdate)
