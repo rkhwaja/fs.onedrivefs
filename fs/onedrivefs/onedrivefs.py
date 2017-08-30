@@ -15,33 +15,30 @@ from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
 from onedrivesdk import AuthProvider, FileSystemInfo, Folder, HttpProvider, Item, OneDriveClient
 from onedrivesdk.error import OneDriveError
-from temp_utils.contextmanagers import temp_file
 
 # onedrivesdk only uploads from a file path
 class UploadOnClose(RawWrapper):
-	def __init__(self, client, path, mode, localPath):
-		print("UploadOnClose.__init__")
+	def __init__(self, client, path, mode):
 		self.client = client
 		self.path = path
-		self.mode = mode
-		fileHandle, localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
+		self.parsedMode = mode
+		fileHandle, self.localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
 		close(fileHandle)
-		if self.mode.reading and not self.mode.truncate:
+		if self.parsedMode.reading and not self.parsedMode.truncate:
 			try:
-				self.client.item(path=path).download(localPath)
+				self.client.item(path=path).download(self.localPath)
 			except OneDriveError as e:
 				pass
-		super().__init__(f=open(self.localPath, mode=mode))
-		if self.mode.appending:
+		super().__init__(f=open(self.localPath, mode=self.parsedMode.to_platform()))
+		if self.parsedMode.appending:
 			# seek to the end
 			self.seek(len(initialData))
 
 	def close(self):
-		print("UploadOnClose.close")
 		super().close() # close the file so that it's readable for upload
-		if self.mode.writing:
+		if self.parsedMode.writing:
 			# upload to OneDrive
-			self.client.item(path=self.uploadPath).upload(self.localPath)
+			self.client.item(path=self.path).upload(self.localPath)
 		remove(self.localPath)
 
 class OneDriveFS(FS):
@@ -179,14 +176,14 @@ class OneDriveFS(FS):
 		return SubFS(self, path)
 
 	def openbin(self, path, mode="r", buffering=-1, **options):
-		mode = Mode(mode)
-		if mode.exclusive and self.exists(path):
+		parsedMode = Mode(mode)
+		if parsedMode.exclusive and self.exists(path):
 			raise FileExists(path)
-		elif mode.reading and not mode.create and not self.exists(path):
+		elif parsedMode.reading and not parsedMode.create and not self.exists(path):
 			raise ResourceNotFound(path)
 		elif self.isdir(path):
 			raise FileExpected(path)
-		return UploadOnClose(client=self.client, path=path, mode=mode, localPath=localPath)
+		return UploadOnClose(client=self.client, path=path, mode=parsedMode)
 
 	def remove(self, path):
 		itemRequest = self.client.item(path=path)
