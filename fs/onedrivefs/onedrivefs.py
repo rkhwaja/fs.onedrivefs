@@ -30,10 +30,10 @@ class UploadOnClose(RawWrapper):
 				self.client.item(path=path).download(self.localPath)
 			except OneDriveError as e:
 				pass
-		super().__init__(f=open(self.localPath, mode=self.parsedMode.to_platform()))
+		super().__init__(f=open(self.localPath, mode=self.parsedMode.to_platform() + "b"))
 		if self.parsedMode.appending:
 			# seek to the end
-			self.seek(len(initialData))
+			self.seek(0, SEEK_END)
 
 	def close(self):
 		super().close() # close the file so that it's readable for upload
