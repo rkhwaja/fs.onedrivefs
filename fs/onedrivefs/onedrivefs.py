@@ -73,11 +73,15 @@ class OneDriveFS(FS):
 			},
 			"details": {
 				"accessed": None, # not supported by OneDrive
-				"created": datetime_to_epoch(item.file_system_info.created_date_time),
+				"created": datetime_to_epoch(item.created_date_time),
 				"metadata_changed": None, # not supported by OneDrive
-				"modified": datetime_to_epoch(item.file_system_info.last_modified_date_time),
+				"modified": datetime_to_epoch(item.last_modified_date_time),
 				"size": item.size,
 				"type": 1 if item.folder is not None else 0,
+			},
+			"file_system_info": {
+				"client_created": datetime_to_epoch(item.file_system_info.created_date_time),
+				"client_modified": datetime_to_epoch(item.file_system_info.last_modified_date_time)
 			}
 		}
 		if item.photo is not None:
