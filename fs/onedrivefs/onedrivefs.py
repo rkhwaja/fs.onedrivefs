@@ -30,7 +30,8 @@ class UploadOnClose(RawWrapper):
 				self.client.item(path=path).download(self.localPath)
 			except OneDriveError as e:
 				pass
-		super().__init__(f=open(self.localPath, mode=self.parsedMode.to_platform() + "b"))
+		platformMode = self.parsedMode.to_platform()
+		super().__init__(f=open(self.localPath, mode=platformMode + ("b" if "b" not in platformMode else "")))
 		if self.parsedMode.appending:
 			# seek to the end
 			self.seek(0, SEEK_END)
@@ -104,6 +105,7 @@ class OneDriveFS(FS):
 					"longitude": item.location.longitude
 				}})
 		if item.tags is not None:
+			# doesn't work
 			rawInfo.update({"tags":
 				{
 					"tags": list(item.tags.tags)
