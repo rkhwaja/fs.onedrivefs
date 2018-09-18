@@ -11,3 +11,4 @@ dist/
 
 # pytest
 .pytest_cache/
+.env

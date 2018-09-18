@@ -18,10 +18,10 @@ from onedrivesdk.error import OneDriveError
 from requests_oauthlib import OAuth2Session
 from temp_utils.contextmanagers import temp_file
 
-ROOT_URL = "https://graph.microsoft.com/v1.0/me/drive/root:"
+_ROOT_URL = "https://graph.microsoft.com/v1.0/me/drive/root:"
 
 # onedrivesdk only uploads from a file path
-class UploadOnClose(RawWrapper):
+class _UploadOnClose(RawWrapper):
 	def __init__(self, client, path, mode):
 		self.client = client
 		self.path = path
@@ -47,7 +47,7 @@ class UploadOnClose(RawWrapper):
 		remove(self.localPath)
 
 class OneDriveFSGraphAPI(FS):
-	def __init__(self, clientId, clientSecret, token, sessionType, SaveToken):
+	def __init__(self, clientId, clientSecret, token, SaveToken):
 		super().__init__()
 		self.session = OAuth2Session(
 			client_id=clientId,
@@ -67,7 +67,7 @@ class OneDriveFSGraphAPI(FS):
 		}
 
 	def __repr__(self):
-		return f"<OneDriveFSGraphAPI>"
+		return f"<{self.__class__.__name__}>"
 
 	def _itemInfo(self, item): # pylint: disable=no-self-use
 		dateTimeFormat = "%Y-%m-%dT%H:%M:%SZ"
@@ -119,9 +119,11 @@ class OneDriveFSGraphAPI(FS):
 		return Info(rawInfo)
 
 	def getinfo(self, path, namespaces=None):
-		response = self.session.get(ROOT_URL + path)
-		if response.code == 404:
-			raise ResourceNotFound(path=path)
+		assert path[0] == "/"
+		response = self.session.get(_ROOT_URL + path)
+		response.raise_for_status()
+		# if response.code == 404:
+		# 	raise ResourceNotFound(path=path)
 		return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
@@ -172,18 +174,27 @@ class OneDriveFSGraphAPI(FS):
 
 	def makedir(self, path, permissions=None, recreate=False):
 		parentDir = dirname(path)
-		itemRequest = self.client.item(path=parentDir)
-		try:
-			item = itemRequest.get()
-		except OneDriveError as e:
-			raise ResourceNotFound(path=parentDir, exc=e)
+		# parentDir here is expected to have a leading slash
+		assert parentDir[0] == "/"
+		response = self.session.get(_ROOT_URL + parentDir)
+		response.raise_for_status()
+		# itemRequest = self.client.item(path=parentDir)
+		# try:
+		# 	item = itemRequest.get()
+		# except OneDriveError as e:
+		# 	raise ResourceNotFound(path=parentDir, exc=e)
 
-		if item.folder is None:
-			raise DirectoryExpected(path=parentDir)
-		newItem = Item()
-		newItem.name = basename(path)
-		newItem.folder = Folder()
-		itemRequest.children.add(entity=newItem)
+		# if item.folder is None:
+		# 	raise DirectoryExpected(path=parentDir)
+
+		response = self.session.post(_ROOT_URL + parentDir + "/children",
+			body={"name": basename(path), "folder": {}})
+		# TODO - will need to deal with these errors locally but don't know what they are yet
+		response.raise_for_status()
+		# newItem = Item()
+		# newItem.name = basename(path)
+		# newItem.folder = Folder()
+		# itemRequest.children.add(entity=newItem)
 		# don't need to close this filesystem so we return the non-closing version
 		return SubFS(self, path)
 
@@ -195,7 +206,7 @@ class OneDriveFSGraphAPI(FS):
 			raise ResourceNotFound(path)
 		elif self.isdir(path):
 			raise FileExpected(path)
-		return UploadOnClose(client=self.client, path=path, mode=parsedMode)
+		return _UploadOnClose(client=self.client, path=path, mode=parsedMode)
 
 	def remove(self, path):
 		itemRequest = self.client.item(path=path)
@@ -211,12 +222,12 @@ class OneDriveFSGraphAPI(FS):
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
-		response = self.session.get(ROOT_URL + path) # assumes path is the full path, starting with "/"
+		response = self.session.get(_ROOT_URL + path) # assumes path is the full path, starting with "/"
 		if response.code == 404:
 			raise ResourceNotFound(path=path)
 		if "folder" not in response.json():
 			raise DirectoryExpected(path=path)
-		response = self.session.get(ROOT_URL + path + ":/children") # assumes path is the full path, starting with "/"
+		response = self.session.get(_ROOT_URL + path + ":/children") # assumes path is the full path, starting with "/"
 		if response.code == 404:
 			raise ResourceNotFound(path=path)
 		parsedResult = result.json()

@@ -1,6 +1,7 @@
 [FORMAT]
 indent-string=\t
+max-line-length=200
 
 [MESSAGES CONTROL]
-#disabling no-member because of the config namespace object
-disable=line-too-long,missing-docstring,too-few-public-methods,invalid-name,bad-continuation,too-many-arguments,too-few-public-methods,star-args,no-member
+# Can't be bothered with docstrings at the moment
+disable=bad-continuation, fixme, invalid-name, len-as-condition, missing-docstring

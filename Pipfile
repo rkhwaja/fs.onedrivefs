@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fs = "*"
+onedrivesdk = "*"
+temp-utils = "*"
+requests-oauthlib = "*"
+
+[dev-packages]
+pyperclip = "*"
+
+[requires]
+python_version = "3.7"
