@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from datetime import datetime
 from io import SEEK_END
 from itertools import chain
 from os import close, fdopen, remove, write
@@ -70,7 +71,7 @@ class OneDriveFSGraphAPI(FS):
 		return f"<{self.__class__.__name__}>"
 
 	def _itemInfo(self, item): # pylint: disable=no-self-use
-		dateTimeFormat = "%Y-%m-%dT%H:%M:%SZ"
+		dateTimeFormat = "%Y-%m-%dT%H:%M:%S.%fZ"
 		# Looks like the dates returned directly in item.file_system_info (i.e. not file_system_info) are UTC naive-datetimes
 		# We're supposed to return timestamps, which the framework can convert to UTC aware-datetimes
 		rawInfo = {
@@ -121,9 +122,8 @@ class OneDriveFSGraphAPI(FS):
 	def getinfo(self, path, namespaces=None):
 		assert path[0] == "/"
 		response = self.session.get(_ROOT_URL + path)
-		response.raise_for_status()
-		# if response.code == 404:
-		# 	raise ResourceNotFound(path=path)
+		if response.status_code == 404:
+			raise ResourceNotFound(path=path)
 		return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
@@ -187,8 +187,8 @@ class OneDriveFSGraphAPI(FS):
 		# if item.folder is None:
 		# 	raise DirectoryExpected(path=parentDir)
 
-		response = self.session.post(_ROOT_URL + parentDir + "/children",
-			body={"name": basename(path), "folder": {}})
+		response = self.session.post(_ROOT_URL + parentDir + ":/children",
+			json={"name": basename(path), "folder": {}})
 		# TODO - will need to deal with these errors locally but don't know what they are yet
 		response.raise_for_status()
 		# newItem = Item()

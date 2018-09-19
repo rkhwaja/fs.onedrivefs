@@ -22,14 +22,11 @@ class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
 class TestOneDriveFS(fs.test.FSTestCases, TestCase):
 	def make_fs(self):
 		tokenPath = environ["GRAPH_API_TOKEN_PATH"]
-		try:
-			with open(tokenPath) as f:
-				initialToken = load(f)
-		except FileNotFoundError:
-			initialToken = None
+		with open(tokenPath) as f:
+			initialToken = load(f)
 		self.fullFS = OneDriveFSGraphAPI(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], initialToken, InMemoryTokenSaver(tokenPath)) # pylint: disable=attribute-defined-outside-init
 		self.testSubdir = "/Documents/test-onedrivefs/" + str(uuid4()) # pylint: disable=attribute-defined-outside-init
 		return self.fullFS.makedirs(self.testSubdir)
 
-	def destroy_fs(self):
-		self.fullFS.rmdir(self.testSubdir)
+	# def destroy_fs(self, _):
+	# 	self.fullFS.removedir(self.testSubdir)
