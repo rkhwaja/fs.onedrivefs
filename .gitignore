@@ -12,3 +12,4 @@ dist/
 # pytest
 .pytest_cache/
 .env
+Pipfile.lock
