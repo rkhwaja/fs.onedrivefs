@@ -11,6 +11,7 @@ requests-oauthlib = "*"
 
 [dev-packages]
 pyperclip = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.7"

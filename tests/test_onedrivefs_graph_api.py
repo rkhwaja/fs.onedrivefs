@@ -17,7 +17,7 @@ class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
 
 	def __call__(self, token):
 		with open(self.path, "w") as f:
-			dump(f)
+			dump(token, f)
 
 class TestOneDriveFS(fs.test.FSTestCases, TestCase):
 	def make_fs(self):
@@ -28,5 +28,5 @@ class TestOneDriveFS(fs.test.FSTestCases, TestCase):
 		self.testSubdir = "/Documents/test-onedrivefs/" + str(uuid4()) # pylint: disable=attribute-defined-outside-init
 		return self.fullFS.makedirs(self.testSubdir)
 
-	# def destroy_fs(self, _):
-	# 	self.fullFS.removedir(self.testSubdir)
+	def destroy_fs(self, _):
+		self.fullFS.removedir(self.testSubdir)

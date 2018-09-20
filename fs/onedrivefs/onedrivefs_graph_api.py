@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import datetime
-from io import SEEK_END
+from io import BytesIO, SEEK_END
 from itertools import chain
 from os import close, fdopen, remove, write
 from tempfile import mkstemp
@@ -19,32 +19,37 @@ from onedrivesdk.error import OneDriveError
 from requests_oauthlib import OAuth2Session
 from temp_utils.contextmanagers import temp_file
 
-_ROOT_URL = "https://graph.microsoft.com/v1.0/me/drive/root:"
+_DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive/"
+_ROOT_URL = _DRIVE_ROOT + "root:"
 
-# onedrivesdk only uploads from a file path
-class _UploadOnClose(RawWrapper):
-	def __init__(self, client, path, mode):
-		self.client = client
+class _UploadOnClose(BytesIO):
+	def __init__(self, session, path, itemId, mode):
+		self.session = session
 		self.path = path
+		self.itemId = itemId
 		self.parsedMode = mode
-		fileHandle, self.localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
-		close(fileHandle)
+		buffer = bytes()
+		# fileHandle, self.localPath = mkstemp(prefix="pyfilesystem-onedrive-", text=False)
+		# close(fileHandle)
 		if self.parsedMode.reading and not self.parsedMode.truncate:
-			try:
-				self.client.item(path=path).download(self.localPath)
-			except OneDriveError as e:
-				pass
+			# TODO - check that it's a file, raise DirectoryExpected if it's not
+			response = self.session.get(_ROOT_URL + path + ":/content")
+			if response.status_code == 404:
+				raise ResourceNotFound(path)
+			buffer = response.content
+
 		platformMode = self.parsedMode.to_platform()
-		super().__init__(f=open(self.localPath, mode=platformMode + ("b" if "b" not in platformMode else "")))
+		super().__init__(buffer)
 		if self.parsedMode.appending:
 			# seek to the end
 			self.seek(0, SEEK_END)
 
 	def close(self):
-		super().close() # close the file so that it's readable for upload
+		# super().close() # close the file so that it's readable for upload
 		if self.parsedMode.writing:
 			# upload to OneDrive
-			self.client.item(path=self.path).upload(self.localPath)
+			response = self.session.put(_DRIVE_ROOT + f"/items/{self.itemId}/content", data=self.getvalue())
+			response.raise_for_status()
 		remove(self.localPath)
 
 class OneDriveFSGraphAPI(FS):
@@ -200,13 +205,19 @@ class OneDriveFSGraphAPI(FS):
 
 	def openbin(self, path, mode="r", buffering=-1, **options):
 		parsedMode = Mode(mode)
-		if parsedMode.exclusive and self.exists(path):
+		exists = self.exists(path)
+		if parsedMode.exclusive and exists:
 			raise FileExists(path)
-		elif parsedMode.reading and not parsedMode.create and not self.exists(path):
+		elif parsedMode.reading and not parsedMode.create and not exists:
 			raise ResourceNotFound(path)
 		elif self.isdir(path):
 			raise FileExpected(path)
-		return _UploadOnClose(client=self.client, path=path, mode=parsedMode)
+		itemId = None
+		if exists:
+			response = self.session.get(_ROOT_URL + path)
+			response.raise_for_status()
+			itemId = response["id"]
+		return _UploadOnClose(client=self.session, path=path, itemId=itemId, mode=parsedMode)
 
 	def remove(self, path):
 		itemRequest = self.client.item(path=path)
@@ -215,10 +226,14 @@ class OneDriveFSGraphAPI(FS):
 		itemRequest.delete()
 
 	def removedir(self, path):
-		itemRequest = self.client.item(path=path)
-		if itemRequest.get().folder is None:
-			raise DirectoryExpected(path=path)
-		itemRequest.delete()
+		# need to get the item id for this path
+		response = self.session.get(_ROOT_URL + path)
+		if response.status_code == 404:
+			raise ResourceNotFound(path)
+		# TODO - check that it's a directory, raise DirectoryExpected if it's not
+		itemId = response.json()["id"] # let JSON parsing exceptions propagate for now
+		response = self.session.delete(_DRIVE_ROOT + f"items/{itemId}")
+		assert response.status_code == 204, itemId # this is according to the spec
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
