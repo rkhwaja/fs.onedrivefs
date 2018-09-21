@@ -29,4 +29,4 @@ class TestOneDriveFS(fs.test.FSTestCases, TestCase):
 		return self.fullFS.makedirs(self.testSubdir)
 
 	def destroy_fs(self, _):
-		self.fullFS.removedir(self.testSubdir)
+		self.fullFS.removetree(self.testSubdir)
