@@ -7,8 +7,7 @@ from os import environ
 from unittest import TestCase
 from uuid import uuid4
 
-import fs.test
-# from fs.test import FSTestCases
+from fs.test import FSTestCases
 from fs.onedrivefs.onedrivefs_graph_api import OneDriveFSGraphAPI
 
 class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
@@ -19,12 +18,25 @@ class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
 		with open(self.path, "w") as f:
 			dump(token, f)
 
-class TestOneDriveFS(fs.test.FSTestCases, TestCase):
+class TokenStorageFile:
+	def __init__(self, path):
+		self.path = path
+
+	def Save(self, token):
+		with open(self.path, "w") as f:
+			dump(token, f)
+
+	def Load(self):
+		try:
+			with open(self.path, "r") as f:
+				return load(f)
+		except FileNotFoundError:
+			return None
+
+class TestOneDriveFS(FSTestCases, TestCase):
 	def make_fs(self):
-		tokenPath = environ["GRAPH_API_TOKEN_PATH"]
-		with open(tokenPath) as f:
-			initialToken = load(f)
-		self.fullFS = OneDriveFSGraphAPI(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], initialToken, InMemoryTokenSaver(tokenPath)) # pylint: disable=attribute-defined-outside-init
+		storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
+		self.fullFS = OneDriveFSGraphAPI(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save) # pylint: disable=attribute-defined-outside-init
 		self.testSubdir = "/Documents/test-onedrivefs/" + str(uuid4()) # pylint: disable=attribute-defined-outside-init
 		return self.fullFS.makedirs(self.testSubdir)
 

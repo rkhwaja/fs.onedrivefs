@@ -13,3 +13,6 @@ dist/
 .pytest_cache/
 .env
 Pipfile.lock
+
+# token files
+*.json

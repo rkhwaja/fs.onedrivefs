@@ -4,6 +4,7 @@ from datetime import datetime
 from io import BytesIO, SEEK_END
 
 from fs.base import FS
+from fs.enums import ResourceType
 from fs.errors import DestinationExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
 from fs.iotools import RawWrapper
@@ -101,13 +102,14 @@ class OneDriveFSGraphAPI(FS):
 			"max_path_length": None, # don't know what the limit is
 			"max_sys_path_length": None, # there's no syspath
 			"network": True,
-			"read_only": True, # at least until openbin is fully implemented
+			"read_only": False,
 			"supports_rename": False # since we don't have a syspath...
 		}
 
 	def __repr__(self):
 		return f"<{self.__class__.__name__}>"
 
+	# Translates OneDrive DriveItem dictionary to an fs Info object
 	def _itemInfo(self, item): # pylint: disable=no-self-use
 		# Looks like the dates returned directly in item.file_system_info (i.e. not file_system_info) are UTC naive-datetimes
 		# We're supposed to return timestamps, which the framework can convert to UTC aware-datetimes
@@ -122,7 +124,7 @@ class OneDriveFSGraphAPI(FS):
 				"metadata_changed": None, # not supported by OneDrive
 				"modified": datetime_to_epoch(_ParseDateTime(item["lastModifiedDateTime"])),
 				"size": item["size"],
-				"type": 1 if "folder" in item else 0,
+				"type": ResourceType.directory if "folder" in item else ResourceType.file,
 			},
 			"file_system_info": {
 				"client_created": datetime_to_epoch(_ParseDateTime(item["fileSystemInfo"]["createdDateTime"])),
