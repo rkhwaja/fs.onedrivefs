@@ -2,10 +2,11 @@
 
 from datetime import datetime
 from io import BytesIO, SEEK_END
+from logging import info
 
 from fs.base import FS
 from fs.enums import ResourceType
-from fs.errors import DestinationExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, ResourceNotFound, ResourceReadOnly
+from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
 from fs.iotools import RawWrapper
 from fs.mode import Mode
@@ -30,19 +31,22 @@ def _ParseDateTime(dt):
 
 class _UploadOnClose(BytesIO):
 	def __init__(self, session, path, itemId, mode):
+		info(f"_UploadOnClose.__init__ {path}, {mode}")
 		self.session = session
 		self.path = path
 		self.itemId = itemId
 		self.parsedMode = mode
 		buffer = bytes()
-		if self.parsedMode.reading and not self.parsedMode.truncate:
+		if (self.parsedMode.appending or self.parsedMode.reading) and not self.parsedMode.truncate:
 			# TODO - check that it's a file, raise DirectoryExpected if it's not
 			response = self.session.get(_PathUrl(path, ":/content"))
 			if response.status_code == 404:
-				raise ResourceNotFound(path)
-			buffer = response.content
+				if not self.parsedMode.appending:
+					raise ResourceNotFound(path)
+			else:
+				info("Read existing file content from url")
+				buffer = response.content
 
-		platformMode = self.parsedMode.to_platform()
 		super().__init__(buffer)
 		if self.parsedMode.appending:
 			# seek to the end
@@ -217,7 +221,14 @@ class OneDriveFSGraphAPI(FS):
 		# parentDir here is expected to have a leading slash
 		assert parentDir[0] == "/"
 		response = self.session.get(_PathUrl(parentDir, ""))
+		if response.status_code == 404:
+			raise ResourceNotFound(parentDir)
 		response.raise_for_status()
+
+		if recreate is False:
+			response = self.session.get(_PathUrl(path, ""))
+			if response.status_code != 404:
+				raise DirectoryExists(path)
 
 		response = self.session.post(_PathUrl(parentDir, ":/children"),
 			json={"name": basename(path), "folder": {}})
