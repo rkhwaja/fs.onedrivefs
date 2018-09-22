@@ -6,7 +6,7 @@ from logging import info
 
 from fs.base import FS
 from fs.enums import ResourceType
-from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, ResourceNotFound, ResourceReadOnly
+from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, InvalidCharsInPath, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
 from fs.iotools import RawWrapper
 from fs.mode import Mode
@@ -16,6 +16,12 @@ from fs.time import datetime_to_epoch, epoch_to_datetime
 from requests_oauthlib import OAuth2Session
 
 _DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive/"
+_INVALID_PATH_CHARS = ":\0\\"
+
+def _CheckPath(path):
+	for char in _INVALID_PATH_CHARS:
+		if char in path:
+			raise InvalidCharsInPath(path)
 
 def _ItemUrl(itemId, extra):
 	return f"{_DRIVE_ROOT}items/{itemId}{extra}"
@@ -102,7 +108,7 @@ class OneDriveFSGraphAPI(FS):
 
 		_meta = self._meta = {
 			"case_insensitive": True, # I think?
-			"invalid_path_chars": ":", # not sure what else
+			"invalid_path_chars": _INVALID_PATH_CHARS,
 			"max_path_length": None, # don't know what the limit is
 			"max_sys_path_length": None, # there's no syspath
 			"network": True,
@@ -164,12 +170,15 @@ class OneDriveFSGraphAPI(FS):
 
 	def getinfo(self, path, namespaces=None):
 		assert path[0] == "/"
+		_CheckPath(path)
 		response = self.session.get(_PathUrl(path, ""))
 		if response.status_code == 404:
 			raise ResourceNotFound(path=path)
+		response.raise_for_status()
 		return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
+		_CheckPath(path)
 		response = self.session.get(_PathUrl(path, ""))
 		if response.status_code == 404:
 			raise ResourceNotFound(path=path)
@@ -214,9 +223,11 @@ class OneDriveFSGraphAPI(FS):
 		response.raise_for_status()
 
 	def listdir(self, path):
+		_CheckPath(path)
 		return [x.name for x in self.scandir(path)]
 
 	def makedir(self, path, permissions=None, recreate=False):
+		_CheckPath(path)
 		parentDir = dirname(path)
 		# parentDir here is expected to have a leading slash
 		assert parentDir[0] == "/"
@@ -238,6 +249,7 @@ class OneDriveFSGraphAPI(FS):
 		return SubFS(self, path)
 
 	def openbin(self, path, mode="r", buffering=-1, **options):
+		_CheckPath(path)
 		if "t" in mode:
 			raise ValueError("Text mode is not allowed in openbin")
 		parsedMode = Mode(mode)
@@ -263,6 +275,7 @@ class OneDriveFSGraphAPI(FS):
 		return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
 
 	def remove(self, path):
+		_CheckPath(path)
 		response = self.session.get(_PathUrl(path, ""))
 		if response.status_code == 404:
 			raise ResourceNotFound(path)
@@ -274,6 +287,7 @@ class OneDriveFSGraphAPI(FS):
 		response.raise_for_status()
 
 	def removedir(self, path):
+		_CheckPath(path)
 		# need to get the item id for this path
 		response = self.session.get(_PathUrl(path, ""))
 		if response.status_code == 404:
@@ -294,6 +308,7 @@ class OneDriveFSGraphAPI(FS):
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
+		_CheckPath(path)
 		response = self.session.get(_PathUrl(path, "")) # assumes path is the full path, starting with "/"
 		if response.status_code == 404:
 			raise ResourceNotFound(path=path)
@@ -309,6 +324,7 @@ class OneDriveFSGraphAPI(FS):
 		return (self._itemInfo(x) for x in parsedResult["value"])
 
 	def move(self, src_path, dst_path, overwrite=False):
+		_CheckPath(path)
 		if not overwrite and self.exists(dst_path):
 			raise DestinationExists(dst_path)
 		driveItemResponse = self.session.get(_PathUrl(src_path, ""))
