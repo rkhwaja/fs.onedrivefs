@@ -101,7 +101,7 @@ class OneDriveFSGraphAPI(FS):
 			token_updater=SaveToken)
 
 		_meta = self._meta = {
-			"case_insensitive": False, # I think?
+			"case_insensitive": True, # I think?
 			"invalid_path_chars": ":", # not sure what else
 			"max_path_length": None, # don't know what the limit is
 			"max_sys_path_length": None, # there's no syspath
