@@ -183,199 +183,204 @@ class OneDriveFSGraphAPI(FS):
 	def getinfo(self, path, namespaces=None):
 		assert path[0] == "/"
 		_CheckPath(path)
-		response = self.session.get(_PathUrl(path, ""))
-		if response.status_code == 404:
-			raise ResourceNotFound(path=path)
-		response.raise_for_status()
-		return self._itemInfo(response.json())
+		with self._lock:
+			response = self.session.get(_PathUrl(path, ""))
+			if response.status_code == 404:
+				raise ResourceNotFound(path=path)
+			response.raise_for_status()
+			return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
 		_CheckPath(path)
-		response = self.session.get(_PathUrl(path, ""))
-		if response.status_code == 404:
-			raise ResourceNotFound(path=path)
-		existingItem = response.json()
-		updatedData = {}
+		with self._lock:
+			response = self.session.get(_PathUrl(path, ""))
+			if response.status_code == 404:
+				raise ResourceNotFound(path=path)
+			existingItem = response.json()
+			updatedData = {}
 
-		for namespace in info:
-			for name, value in info[namespace].items():
-				if namespace == "basic":
-					if name == "name":
-						assert False, "Unexpected to try and change the name this way"
-					elif name == "is_dir":
-						# can't change this - must be an error in the framework
-						assert False, "Can't change an item to and from directory"
+			for namespace in info:
+				for name, value in info[namespace].items():
+					if namespace == "basic":
+						if name == "name":
+							assert False, "Unexpected to try and change the name this way"
+						elif name == "is_dir":
+							# can't change this - must be an error in the framework
+							assert False, "Can't change an item to and from directory"
+						else:
+							assert False, "Aren't we guaranteed that this is all there is in the basic namespace?"
+					elif namespace == "details":
+						if name == "accessed":
+							pass # not supported by OneDrive
+						elif name == "created":
+							# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
+							if "fileSystemInfo" not in updatedData:
+								updatedData["fileSystemInfo"] = {}
+							updatedData["fileSystemInfo"]["createdDateTime"] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + "Z"
+						elif name == "metadata_changed":
+							pass # not supported by OneDrive
+						elif name == "modified":
+							# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
+							if "fileSystemInfo" not in updatedData:
+								updatedData["fileSystemInfo"] = {}
+							updatedData["fileSystemInfo"]["lastModifiedDateTime"] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + "Z"
+						elif name == "size":
+							assert False, "Can't change item size"
+						elif name == "type":
+							assert False, "Can't change an item to and from directory"
+						else:
+							assert False, "Aren't we guaranteed that this is all there is in the details namespace?"
 					else:
-						assert False, "Aren't we guaranteed that this is all there is in the basic namespace?"
-				elif namespace == "details":
-					if name == "accessed":
-						pass # not supported by OneDrive
-					elif name == "created":
-						# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
-						if "fileSystemInfo" not in updatedData:
-							updatedData["fileSystemInfo"] = {}
-						updatedData["fileSystemInfo"]["createdDateTime"] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + "Z"
-					elif name == "metadata_changed":
-						pass # not supported by OneDrive
-					elif name == "modified":
-						# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
-						if "fileSystemInfo" not in updatedData:
-							updatedData["fileSystemInfo"] = {}
-						updatedData["fileSystemInfo"]["lastModifiedDateTime"] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + "Z"
-					elif name == "size":
-						assert False, "Can't change item size"
-					elif name == "type":
-						assert False, "Can't change an item to and from directory"
-					else:
-						assert False, "Aren't we guaranteed that this is all there is in the details namespace?"
-				else:
-					# ignore namespaces that we don't recognize
-					pass
-		response = self.session.patch(_ItemUrl(existingItem["id"], ""), json=updatedData)
-		response.raise_for_status()
+						# ignore namespaces that we don't recognize
+						pass
+			response = self.session.patch(_ItemUrl(existingItem["id"], ""), json=updatedData)
+			response.raise_for_status()
 
 	def listdir(self, path):
 		_CheckPath(path)
-		return [x.name for x in self.scandir(path)]
+		with self._lock:
+			return [x.name for x in self.scandir(path)]
 
 	def makedir(self, path, permissions=None, recreate=False):
 		_CheckPath(path)
-		parentDir = dirname(path)
-		# parentDir here is expected to have a leading slash
-		assert parentDir[0] == "/"
-		response = self.session.get(_PathUrl(parentDir, ""))
-		if response.status_code == 404:
-			raise ResourceNotFound(parentDir)
-		response.raise_for_status()
-
-		if recreate is False:
-			response = self.session.get(_PathUrl(path, ""))
-			if response.status_code != 404:
-				raise DirectoryExists(path)
-
-		response = self.session.post(_PathUrl(parentDir, ":/children"),
-			json={"name": basename(path), "folder": {}})
-		# TODO - will need to deal with these errors locally but don't know what they are yet
-		response.raise_for_status()
-		# don't need to close this filesystem so we return the non-closing version
-		return SubFS(self, path)
-
-	def openbin(self, path, mode="r", buffering=-1, **options):
-		_CheckPath(path)
-		if "t" in mode:
-			raise ValueError("Text mode is not allowed in openbin")
-		parsedMode = Mode(mode)
-		exists = self.exists(path)
-		if parsedMode.exclusive and exists:
-			raise FileExists(path)
-		elif parsedMode.reading and not parsedMode.create and not exists:
-			raise ResourceNotFound(path)
-		elif self.isdir(path):
-			raise FileExpected(path)
-		if parsedMode.writing:
-			# make sure that the parent directory exists
+		with self._lock:
 			parentDir = dirname(path)
+			# parentDir here is expected to have a leading slash
+			assert parentDir[0] == "/"
 			response = self.session.get(_PathUrl(parentDir, ""))
 			if response.status_code == 404:
 				raise ResourceNotFound(parentDir)
 			response.raise_for_status()
-		itemId = None
-		if exists:
-			response = self.session.get(_PathUrl(path, ""))
+
+			if recreate is False:
+				response = self.session.get(_PathUrl(path, ""))
+				if response.status_code != 404:
+					raise DirectoryExists(path)
+
+			response = self.session.post(_PathUrl(parentDir, ":/children"),
+				json={"name": basename(path), "folder": {}})
+			# TODO - will need to deal with these errors locally but don't know what they are yet
 			response.raise_for_status()
-			itemId = response.json()["id"]
-		return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
+			# don't need to close this filesystem so we return the non-closing version
+			return SubFS(self, path)
+
+	def openbin(self, path, mode="r", buffering=-1, **options):
+		_CheckPath(path)
+		with self._lock:
+			if "t" in mode:
+				raise ValueError("Text mode is not allowed in openbin")
+			parsedMode = Mode(mode)
+			exists = self.exists(path)
+			if parsedMode.exclusive and exists:
+				raise FileExists(path)
+			elif parsedMode.reading and not parsedMode.create and not exists:
+				raise ResourceNotFound(path)
+			elif self.isdir(path):
+				raise FileExpected(path)
+			if parsedMode.writing:
+				# make sure that the parent directory exists
+				parentDir = dirname(path)
+				response = self.session.get(_PathUrl(parentDir, ""))
+				if response.status_code == 404:
+					raise ResourceNotFound(parentDir)
+				response.raise_for_status()
+			itemId = None
+			if exists:
+				response = self.session.get(_PathUrl(path, ""))
+				response.raise_for_status()
+				itemId = response.json()["id"]
+			return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
 
 	def remove(self, path):
 		_CheckPath(path)
-		response = self.session.get(_PathUrl(path, ""))
-		if response.status_code == 404:
-			raise ResourceNotFound(path)
-		response.raise_for_status()
-		itemData = response.json()
-		if "folder" in itemData:
-			raise FileExpected(path=path)
-		response = self.session.delete(_PathUrl(path, ""))
-		response.raise_for_status()
+		with self._lock:
+			response = self.session.get(_PathUrl(path, ""))
+			if response.status_code == 404:
+				raise ResourceNotFound(path)
+			response.raise_for_status()
+			itemData = response.json()
+			if "folder" in itemData:
+				raise FileExpected(path=path)
+			response = self.session.delete(_PathUrl(path, ""))
+			response.raise_for_status()
 
 	def removedir(self, path):
 		_CheckPath(path)
-		# need to get the item id for this path
-		response = self.session.get(_PathUrl(path, ""))
-		if response.status_code == 404:
-			raise ResourceNotFound(path)
-		itemData = response.json()
-		if "folder" not in itemData:
-			raise DirectoryExpected(path)
+		with self._lock:
+			# need to get the item id for this path
+			response = self.session.get(_PathUrl(path, ""))
+			if response.status_code == 404:
+				raise ResourceNotFound(path)
+			itemData = response.json()
+			if "folder" not in itemData:
+				raise DirectoryExpected(path)
 
-		response = self.session.get(_PathUrl(path, ":/children"))
-		response.raise_for_status()
-		childrenData = response.json()
-		if len(childrenData["value"]) > 0:
-			raise DirectoryNotEmpty(path)
+			response = self.session.get(_PathUrl(path, ":/children"))
+			response.raise_for_status()
+			childrenData = response.json()
+			if len(childrenData["value"]) > 0:
+				raise DirectoryNotEmpty(path)
 
-		itemId = itemData["id"] # let JSON parsing exceptions propagate for now
-		response = self.session.delete(_ItemUrl(itemId, ""))
-		assert response.status_code == 204, itemId # this is according to the spec
+			itemId = itemData["id"] # let JSON parsing exceptions propagate for now
+			response = self.session.delete(_ItemUrl(itemId, ""))
+			assert response.status_code == 204, itemId # this is according to the spec
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
 		_CheckPath(path)
-		response = self.session.get(_PathUrl(path, "")) # assumes path is the full path, starting with "/"
-		if response.status_code == 404:
-			raise ResourceNotFound(path=path)
-		if "folder" not in response.json():
-			raise DirectoryExpected(path=path)
-		response = self.session.get(_PathUrl(path, ":/children")) # assumes path is the full path, starting with "/"
-		if response.status_code == 404:
-			raise ResourceNotFound(path=path)
-		parsedResult = response.json()
-		assert "@odata.context" in parsedResult
-		if page is not None:
-			return (self._itemInfo(x) for x in parsedResult["value"][page[0]:page[1]])
-		return (self._itemInfo(x) for x in parsedResult["value"])
+		with self._lock:
+			response = self.session.get(_PathUrl(path, "")) # assumes path is the full path, starting with "/"
+			if response.status_code == 404:
+				raise ResourceNotFound(path=path)
+			if "folder" not in response.json():
+				raise DirectoryExpected(path=path)
+			response = self.session.get(_PathUrl(path, ":/children")) # assumes path is the full path, starting with "/"
+			if response.status_code == 404:
+				raise ResourceNotFound(path=path)
+			parsedResult = response.json()
+			assert "@odata.context" in parsedResult
+			if page is not None:
+				return (self._itemInfo(x) for x in parsedResult["value"][page[0]:page[1]])
+			return (self._itemInfo(x) for x in parsedResult["value"])
 
 	def move(self, src_path, dst_path, overwrite=False):
 		_CheckPath(dst_path)
-		if not overwrite and self.exists(dst_path):
-			raise DestinationExists(dst_path)
-		driveItemResponse = self.session.get(_PathUrl(src_path, ""))
-		if driveItemResponse.status_code == 404:
-			raise ResourceNotFound(src_path)
-		driveItemResponse.raise_for_status()
-		driveItem = driveItemResponse.json()
+		with self._lock:
+			if not overwrite and self.exists(dst_path):
+				raise DestinationExists(dst_path)
+			driveItemResponse = self.session.get(_PathUrl(src_path, ""))
+			if driveItemResponse.status_code == 404:
+				raise ResourceNotFound(src_path)
+			driveItemResponse.raise_for_status()
+			driveItem = driveItemResponse.json()
 
-		if "folder" in driveItem:
-			raise FileExpected(src_path)
+			if "folder" in driveItem:
+				raise FileExpected(src_path)
 
-		itemUpdate = {}
+			itemUpdate = {}
 
-		newFilename = basename(dst_path)
-		if not self.isdir(dst_path) and newFilename != basename(src_path):
-			itemUpdate["name"] = newFilename
+			newFilename = basename(dst_path)
+			if not self.isdir(dst_path) and newFilename != basename(src_path):
+				itemUpdate["name"] = newFilename
 
-		parentDir = dirname(dst_path)
-		if parentDir != dirname(src_path):
-			parentDirItem = self.session.get(_PathUrl(parentDir, ""))
-			if parentDirItem.status_code == 404:
-				raise ResourceNotFound(parentDir)
-			parentDirItem.raise_for_status()
-			itemUpdate["parentReference"] = {"id": parentDirItem.json()["id"]}
+			parentDir = dirname(dst_path)
+			if parentDir != dirname(src_path):
+				parentDirItem = self.session.get(_PathUrl(parentDir, ""))
+				if parentDirItem.status_code == 404:
+					raise ResourceNotFound(parentDir)
+				parentDirItem.raise_for_status()
+				itemUpdate["parentReference"] = {"id": parentDirItem.json()["id"]}
 
-		itemId = driveItem["id"]
-		response = self.session.patch(_ItemUrl(itemId, ""), json=itemUpdate)
-		if response.status_code == 409 and overwrite is True:
-			# delete the existing version and then try again
-			response = self.session.delete(_PathUrl(dst_path, ""))
-			response.raise_for_status()
-
-			# check that it was deleted
-			# response = self.session.get(_PathUrl(dst_path, ""))
-			# assert response.status_code == 404, f"File {dst_path} should have been deleted"
-
-			# try again
-			print(f"Deleted existing file, updating again to {itemUpdate}")
+			itemId = driveItem["id"]
 			response = self.session.patch(_ItemUrl(itemId, ""), json=itemUpdate)
+			if response.status_code == 409 and overwrite is True:
+				# delete the existing version and then try again
+				response = self.session.delete(_PathUrl(dst_path, ""))
+				response.raise_for_status()
+
+				# try again
+				print(f"Deleted existing file, updating again to {itemUpdate}")
+				response = self.session.patch(_ItemUrl(itemId, ""), json=itemUpdate)
+				response.raise_for_status()
+				return
 			response.raise_for_status()
-			return
-		response.raise_for_status()
