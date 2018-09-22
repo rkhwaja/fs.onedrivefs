@@ -42,22 +42,34 @@ class _UploadOnClose(BytesIO):
 		self.path = path
 		self.itemId = itemId
 		self.parsedMode = mode
-		buffer = bytes()
+		initialData = None
 		if (self.parsedMode.appending or self.parsedMode.reading) and not self.parsedMode.truncate:
-			# TODO - check that it's a file, raise DirectoryExpected if it's not
 			response = self.session.get(_PathUrl(path, ":/content"))
 			if response.status_code == 404:
 				if not self.parsedMode.appending:
 					raise ResourceNotFound(path)
 			else:
 				info("Read existing file content from url")
-				buffer = response.content
+				initialData = response.content
 
-		super().__init__(buffer)
-		if self.parsedMode.appending:
+		super().__init__(initialData)
+		if self.parsedMode.appending and initialData is not None:
 			# seek to the end
-			self.seek(0, SEEK_END)
+			self.seek(len(initialData))
 		self._closed = False
+
+	def truncate(self, size=None):
+		# BytesIO.truncate works as needed except if truncating to longer than the existing size
+		originalSize = len(self.getvalue())
+		super().truncate(size)
+		if size is None: # Bytes.truncate works fine for this case
+			return len(self.getvalue())
+		if size <= originalSize: # BytesIO.truncate works fine for this case
+			return len(self.getvalue())
+		# this is the behavior of native files and is specified by pyfilesystem2
+		self.write(b"\0" * (size - originalSize))
+		self.seek(originalSize)
+		return len(self.getvalue())
 
 	def read(self, size=-1):
 		if self.parsedMode.reading is False:
@@ -324,7 +336,7 @@ class OneDriveFSGraphAPI(FS):
 		return (self._itemInfo(x) for x in parsedResult["value"])
 
 	def move(self, src_path, dst_path, overwrite=False):
-		_CheckPath(path)
+		_CheckPath(dst_path)
 		if not overwrite and self.exists(dst_path):
 			raise DestinationExists(dst_path)
 		driveItemResponse = self.session.get(_PathUrl(src_path, ""))
