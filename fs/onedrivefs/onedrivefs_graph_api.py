@@ -100,12 +100,40 @@ class _UploadOnClose(BytesIO):
 				response.raise_for_status()
 				parentId = response.json()["id"]
 				filename = basename(self.path)
-				response = self.session.put(_ItemUrl(parentId, f":/{filename}:/content"), data=self.getvalue())
-				response.raise_for_status()
+				if True:
+					response = self.session.put(_ItemUrl(parentId, f":/{filename}:/content"), data=self.getvalue())
+					response.raise_for_status()
+				else:
+					# Use the resumable upload
+					itemData = {
+						"@odata.type": "microsoft.graph.driveItemUploadableProperties",
+						"@microsoft.graph.conflictBehavior": "fail",
+						# "description": "description",
+						# "fileSystemInfo": { "@odata.type": "microsoft.graph.fileSystemInfo" },
+						"name": filename
+					}
+					uploadInfo = self.session.post(_ItemUrl(parentId, ":/createUploadSession"), json=itemData)
+					uploadInfo.raise_for_status()
+					response = self.session.put(uploadInfo.json()["uploadUrl"], data=self.getvalue())
+					response.raise_for_status()
 			else:
 				# upload a new version
-				response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
-				response.raise_for_status()
+				if True:
+					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
+					response.raise_for_status()
+				else:
+					# Use the resumable upload
+					itemData = {
+						"@odata.type": "microsoft.graph.driveItemUploadableProperties",
+						"@microsoft.graph.conflictBehavior": "overwrite",
+						# "description": "description",
+						# "fileSystemInfo": { "@odata.type": "microsoft.graph.fileSystemInfo" },
+						"name": filename
+					}
+					uploadInfo = self.session.post(_ItemUrl(self.itemId, ":/createUploadSession"), json=itemData)
+					uploadInfo.raise_for_status()
+					response = self.session.put(uploadInfo.json()["uploadUrl"], data=self.getvalue())
+					response.raise_for_status()
 		self._closed = True
 
 class OneDriveFSGraphAPI(FS):
