@@ -15,7 +15,7 @@ from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
 from requests_oauthlib import OAuth2Session
 
-_DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive/"
+_DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive"
 _INVALID_PATH_CHARS = ":\0\\"
 
 def _CheckPath(path):
@@ -24,10 +24,10 @@ def _CheckPath(path):
 			raise InvalidCharsInPath(path)
 
 def _ItemUrl(itemId, extra):
-	return f"{_DRIVE_ROOT}items/{itemId}{extra}"
+	return f"{_DRIVE_ROOT}/items/{itemId}{extra}"
 
 def _PathUrl(path, extra):
-	return f"{_DRIVE_ROOT}root:{path}{extra}"
+	return f"{_DRIVE_ROOT}/root:{path}{extra}"
 
 def _ParseDateTime(dt):
 	try:
@@ -89,51 +89,47 @@ class _UploadOnClose(BytesIO):
 
 	@property
 	def closed(self):
-		return self._closed	
+		return self._closed
+
+	def _ResumableUpload(self, conflictBehavior, filename, uploadSessionUrl):
+		# Use the resumable upload
+		itemData = {
+			# "@odata.type": "microsoft.graph.driveItemUploadableProperties",
+			"@microsoft.graph.conflictBehavior": conflictBehavior,
+			"description": "",
+			# "fileSystemInfo": { "@odata.type": "microsoft.graph.fileSystemInfo" },
+			"name": filename
+		}
+		uploadInfo = self.session.post(uploadSessionUrl)#, json=itemData)
+		print(uploadInfo.text)
+		uploadInfo.raise_for_status()
+		print(uploadInfo.status_code)
+		response = self.session.put(uploadInfo.json()["uploadUrl"], data=self.getvalue())
+		response.raise_for_status()
 
 	def close(self):
 		if self.parsedMode.writing:
 			if self.itemId is None:
 				# we have to create a new file
 				parentDir = dirname(self.path)
+				print(f"parentDir: {parentDir}")
 				response = self.session.get(_PathUrl(parentDir, ""))
 				response.raise_for_status()
 				parentId = response.json()["id"]
 				filename = basename(self.path)
-				if True:
+				print(f"filename: {filename}")
+				if True: #len(self.getvalue()) < 4e6:
 					response = self.session.put(_ItemUrl(parentId, f":/{filename}:/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
-					# Use the resumable upload
-					itemData = {
-						"@odata.type": "microsoft.graph.driveItemUploadableProperties",
-						"@microsoft.graph.conflictBehavior": "fail",
-						# "description": "description",
-						# "fileSystemInfo": { "@odata.type": "microsoft.graph.fileSystemInfo" },
-						"name": filename
-					}
-					uploadInfo = self.session.post(_ItemUrl(parentId, ":/createUploadSession"), json=itemData)
-					uploadInfo.raise_for_status()
-					response = self.session.put(uploadInfo.json()["uploadUrl"], data=self.getvalue())
-					response.raise_for_status()
+					self._ResumableUpload("fail", filename, _ItemUrl(parentId, f":/{filename}:/createUploadSession"))
 			else:
 				# upload a new version
-				if True:
+				if True: #len(self.getvalue()) < 4e6:
 					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
-					# Use the resumable upload
-					itemData = {
-						"@odata.type": "microsoft.graph.driveItemUploadableProperties",
-						"@microsoft.graph.conflictBehavior": "overwrite",
-						# "description": "description",
-						# "fileSystemInfo": { "@odata.type": "microsoft.graph.fileSystemInfo" },
-						"name": filename
-					}
-					uploadInfo = self.session.post(_ItemUrl(self.itemId, ":/createUploadSession"), json=itemData)
-					uploadInfo.raise_for_status()
-					response = self.session.put(uploadInfo.json()["uploadUrl"], data=self.getvalue())
-					response.raise_for_status()
+					self._ResumableUpload("overwrite", filename, _ItemUrl(self.itemId, ":/createUploadSession"))
 		self._closed = True
 
 class OneDriveFSGraphAPI(FS):
