@@ -92,7 +92,6 @@ class _UploadOnClose(BytesIO):
 		return self._closed
 
 	def _ResumableUpload(self, conflictBehavior, filename, uploadSessionUrl):
-		# Use the resumable upload
 		itemData = {
 			# "@odata.type": "microsoft.graph.driveItemUploadableProperties",
 			"@microsoft.graph.conflictBehavior": conflictBehavior,
@@ -100,36 +99,40 @@ class _UploadOnClose(BytesIO):
 			# "fileSystemInfo": { "@odata.type": "microsoft.graph.fileSystemInfo" },
 			"name": filename
 		}
-		uploadInfo = self.session.post(uploadSessionUrl)#, json=itemData)
-		print(uploadInfo.text)
+		uploadInfo = self.session.post(uploadSessionUrl)
 		uploadInfo.raise_for_status()
-		print(uploadInfo.status_code)
-		response = self.session.put(uploadInfo.json()["uploadUrl"], data=self.getvalue())
-		response.raise_for_status()
+		uploadUrl = uploadInfo.json()["uploadUrl"]
+		size = len(self.getvalue())
+		bytesSent = 0
+		while bytesSent < size:
+			# data size should be a multiple of 320 KiB
+			length = min(320 * 1024, size - bytesSent)
+			dataToSend = self.getvalue()[bytesSent:bytesSent + length]
+			assert len(dataToSend) == length
+			response = self.session.put(uploadUrl, data=dataToSend, headers={"content-range": f"bytes {bytesSent}-{bytesSent + length - 1}/{size}"})
+			response.raise_for_status()
+			bytesSent += length
 
 	def close(self):
 		if self.parsedMode.writing:
+			response = self.session.get(_PathUrl(dirname(self.path), ""))
+			response.raise_for_status()
+			parentId = response.json()["id"]
+			filename = basename(self.path)
 			if self.itemId is None:
 				# we have to create a new file
-				parentDir = dirname(self.path)
-				print(f"parentDir: {parentDir}")
-				response = self.session.get(_PathUrl(parentDir, ""))
-				response.raise_for_status()
-				parentId = response.json()["id"]
-				filename = basename(self.path)
-				print(f"filename: {filename}")
-				if True: #len(self.getvalue()) < 4e6:
+				if len(self.getvalue()) < 4e6:
 					response = self.session.put(_ItemUrl(parentId, f":/{filename}:/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
 					self._ResumableUpload("fail", filename, _ItemUrl(parentId, f":/{filename}:/createUploadSession"))
 			else:
 				# upload a new version
-				if True: #len(self.getvalue()) < 4e6:
+				if len(self.getvalue()) < 4e6:
 					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
-					self._ResumableUpload("overwrite", filename, _ItemUrl(self.itemId, ":/createUploadSession"))
+					self._ResumableUpload("overwrite", filename, _ItemUrl(parentId, f":/{filename}:/createUploadSession"))
 		self._closed = True
 
 class OneDriveFSGraphAPI(FS):
@@ -403,7 +406,6 @@ class OneDriveFSGraphAPI(FS):
 				response.raise_for_status()
 
 				# try again
-				print(f"Deleted existing file, updating again to {itemUpdate}")
 				response = self.session.patch(_ItemUrl(itemId, ""), json=itemUpdate)
 				response.raise_for_status()
 				return
