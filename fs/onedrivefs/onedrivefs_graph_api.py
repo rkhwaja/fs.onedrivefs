@@ -35,6 +35,11 @@ def _ParseDateTime(dt):
 	except ValueError:
 		return datetime.strptime(dt, "%Y-%m-%dT%H:%M:%SZ")
 
+def _UpdateDict(dict_, sourceKey, targetKey, processFn=None):
+	if sourceKey in dict_:
+		return {targetKey: processFn(dict_[sourceKey]) if processFn is not None else dict_[sourceKey]}
+	return {}
+
 class _UploadOnClose(BytesIO):
 	def __init__(self, session, path, itemId, mode):
 		info(f"_UploadOnClose.__init__ {path}, {mode}")
@@ -181,24 +186,25 @@ class OneDriveFSGraphAPI(FS):
 			}
 		}
 		if "photo" in item:
-			rawInfo.update({"photo":
-				{
-					"camera_make": item["photo"]["cameraMake"],
-					"camera_model": item["photo"]["cameraModel"],
-					"exposure_denominator": item["photo"]["exposureDenominator"],
-					"exposure_numerator": item["photo"]["exposureNumerator"],
-					"focal_length": item["photo"]["focalLength"],
-					"f_number": item["photo"]["fNumber"],
-					"taken_date_time": _ParseDateTime(item["photo"]["takenDateTime"]),
-					"iso": item["photo"]["iso"]
-				}})
+			rawInfo["photo"] = {}
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "cameraMake", "camera_make"))
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "cameraModel", "camera_model"))
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "exposureDenominator", "exposure_denominator"))
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "exposureNumerator", "exposure_numerator"))
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "focalLength", "focal_length"))
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "fNumber", "f_number"))
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "takenDateTime", "taken_date_time", _ParseDateTime))
+			rawInfo["photo"].update(_UpdateDict(item["photo"], "iso", "iso"))
+		if "image" in item:
+			rawInfo["image"] = {}
+			rawInfo["image"].update(_UpdateDict(item["image"], "width", "width"))
+			rawInfo["image"].update(_UpdateDict(item["image"], "height", "height"))
 		if "location" in item:
-			rawInfo.update({"location":
-				{
-					"altitude": item["location"]["altitude"],
-					"latitude": item["location"]["latitude"],
-					"longitude": item["location"]["longitude"]
-				}})
+			print(item["location"])
+			rawInfo["location"] = {}
+			rawInfo["location"].update(_UpdateDict(item["location"], "altitude", "altitude"))
+			rawInfo["location"].update(_UpdateDict(item["location"], "latitude", "latitude"))
+			rawInfo["location"].update(_UpdateDict(item["location"], "longitude", "longitude"))
 		if "tags" in item:
 			# doesn't work
 			rawInfo.update({"tags":
