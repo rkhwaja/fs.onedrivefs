@@ -151,7 +151,7 @@ class OneDriveFSGraphAPI(FS):
 			token_updater=SaveToken)
 
 		_meta = self._meta = {
-			"case_insensitive": True, # I think?
+			"case_insensitive": True,
 			"invalid_path_chars": _INVALID_PATH_CHARS,
 			"max_path_length": None, # don't know what the limit is
 			"max_sys_path_length": None, # there's no syspath
@@ -200,7 +200,6 @@ class OneDriveFSGraphAPI(FS):
 			rawInfo["image"].update(_UpdateDict(item["image"], "width", "width"))
 			rawInfo["image"].update(_UpdateDict(item["image"], "height", "height"))
 		if "location" in item:
-			print(item["location"])
 			rawInfo["location"] = {}
 			rawInfo["location"].update(_UpdateDict(item["location"], "altitude", "altitude"))
 			rawInfo["location"].update(_UpdateDict(item["location"], "latitude", "latitude"))
