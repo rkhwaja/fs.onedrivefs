@@ -43,7 +43,33 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		return self.fullFS.makedirs(self.testSubdir)
 
 	def destroy_fs(self, _):
-		self.fullFS.removetree(self.testSubdir)
+		pass #self.fullFS.removetree(self.testSubdir)
+
+	def test_overwrite_file(self):
+		with self.fs.open("small_file_to_overwrite.bin", "wb") as f:
+			f.write(b"x" * 10)
+
+		with self.fs.open("small_file_to_overwrite.bin", "wb") as f:
+			f.write(b"y" * 10)
+
+		with self.fs.open("small_file_to_overwrite.txt", "w") as f:
+			f.write("x" * 10)
+
+		with self.fs.open("small_file_to_overwrite.txt", "w") as f:
+			f.write("y" * 10)
+
+		with self.fs.open("large_file_to_overwrite.bin", "wb") as f:
+			f.write(b"x" * 4000000)
+
+		with self.fs.open("large_file_to_overwrite.bin", "wb") as f:
+			f.write(b"y" * 4000000)
+
+		with self.fs.open("large_file_to_overwrite.txt", "w") as f:
+			f.write("x" * 4000000)
+
+		with self.fs.open("large_file_to_overwrite.txt", "w") as f:
+			f.write("y" * 4000000)
+
 
 	def test_photo_metadata(self):
 		with self.fs.open("canon-ixus.jpg", "wb") as target:

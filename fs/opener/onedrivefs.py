@@ -32,7 +32,7 @@ class MemorySession(Session):
 			)
 
 class OneDriveOpener(Opener):
-	protocols = ["onedrive"]
+	protocols = ["onedriveold"]
 
 	@staticmethod
 	def open_fs(fs_url, parse_result, writeable, create, cwd):

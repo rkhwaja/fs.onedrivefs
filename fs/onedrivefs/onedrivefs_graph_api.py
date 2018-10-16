@@ -97,13 +97,6 @@ class _UploadOnClose(BytesIO):
 		return self._closed
 
 	def _ResumableUpload(self, conflictBehavior, filename, uploadSessionUrl):
-		itemData = {
-			# "@odata.type": "microsoft.graph.driveItemUploadableProperties",
-			"@microsoft.graph.conflictBehavior": conflictBehavior,
-			"description": "",
-			# "fileSystemInfo": { "@odata.type": "microsoft.graph.fileSystemInfo" },
-			"name": filename
-		}
 		uploadInfo = self.session.post(uploadSessionUrl)
 		uploadInfo.raise_for_status()
 		uploadUrl = uploadInfo.json()["uploadUrl"]
