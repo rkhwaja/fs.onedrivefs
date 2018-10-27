@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 from datetime import datetime
+from hashlib import sha1
 from json import dump, load
 from os import environ
 from time import sleep
@@ -43,7 +44,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		return self.fullFS.makedirs(self.testSubdir)
 
 	def destroy_fs(self, _):
-		pass #self.fullFS.removetree(self.testSubdir)
+		self.fullFS.removetree(self.testSubdir)
 
 	def test_overwrite_file(self):
 		with self.fs.open("small_file_to_overwrite.bin", "wb") as f:
@@ -124,3 +125,14 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			sleep(5)
 		else:
 			self.assertTrue(False, "EXIF metadata not processed in 10s")
+
+	def test_hashes(self):
+		with self.fs.open("DSCN0010.jpg", "wb") as target:
+			with open("tests/DSCN0010.jpg", "rb") as source:
+				data = source.read()
+				target.write(data)
+
+		hash_ = sha1()
+		hash_.update(data)
+
+		self.assertEqual(hash_.hexdigest().upper(), self.fs.getinfo("DSCN0010.jpg").get("hashes", "SHA1"))

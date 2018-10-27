@@ -197,6 +197,16 @@ class OneDriveFSGraphAPI(FS):
 			rawInfo["location"].update(_UpdateDict(item["location"], "altitude", "altitude"))
 			rawInfo["location"].update(_UpdateDict(item["location"], "latitude", "latitude"))
 			rawInfo["location"].update(_UpdateDict(item["location"], "longitude", "longitude"))
+		if "file" in item:
+			if "hashes" in item["file"]:
+				rawInfo["hashes"] = {}
+				# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes?view=odsp-graph-online
+				# CRC32 appears in the spec but not in the implementation
+				rawInfo["hashes"].update(_UpdateDict(item["file"]["hashes"], "crc32Hash", "CRC32"))
+				# Standard SHA1
+				rawInfo["hashes"].update(_UpdateDict(item["file"]["hashes"], "sha1Hash", "SHA1"))
+				# proprietary hash for change detection
+				rawInfo["hashes"].update(_UpdateDict(item["file"]["hashes"], "quickXorHash", "quickXorHash"))
 		if "tags" in item:
 			# doesn't work
 			rawInfo.update({"tags":
