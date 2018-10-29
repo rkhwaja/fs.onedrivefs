@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from io import BytesIO, SEEK_END
-from logging import info
 
 from fs.base import FS
 from fs.enums import ResourceType
@@ -13,6 +12,7 @@ from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
+from requests import get
 from requests_oauthlib import OAuth2Session
 
 _DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive"
@@ -42,7 +42,6 @@ def _UpdateDict(dict_, sourceKey, targetKey, processFn=None):
 
 class _UploadOnClose(BytesIO):
 	def __init__(self, session, path, itemId, mode):
-		info(f"_UploadOnClose.__init__ {path}, {mode}")
 		self.session = session
 		self.path = path
 		self.itemId = itemId
@@ -54,7 +53,6 @@ class _UploadOnClose(BytesIO):
 				if not self.parsedMode.appending:
 					raise ResourceNotFound(path)
 			else:
-				info("Read existing file content from url")
 				initialData = response.content
 
 		super().__init__(initialData)
@@ -418,3 +416,48 @@ class OneDriveFSGraphAPI(FS):
 				response.raise_for_status()
 				return
 			response.raise_for_status()
+
+	def copy(self, src_path, dst_path, overwrite=False):
+		_CheckPath(src_path)
+		_CheckPath(dst_path)
+		with self._lock:
+			if not overwrite and self.exists(dst_path):
+				raise DestinationExists(dst_path)
+
+			driveItemResponse = self.session.get(_PathUrl(src_path, ""))
+			if driveItemResponse.status_code == 404:
+				raise ResourceNotFound(src_path)
+			driveItemResponse.raise_for_status()
+			driveItem = driveItemResponse.json()
+
+			if "folder" in driveItem:
+				raise FileExpected(src_path)
+
+			newParentDir = dirname(dst_path)
+			newFilename = basename(dst_path)
+
+			parentDirResponse = self.session.get(_PathUrl(newParentDir, ""))
+			if parentDirResponse.status_code == 404:
+				raise ResourceNotFound(src_path)
+			parentDirResponse.raise_for_status()
+			parentDirItem = parentDirResponse.json()
+
+			from json import dumps
+			# This just asynchronously starts the copy
+			response = self.session.post(_ItemUrl(driveItem["id"], "/copy"), json={
+				"parentReference": {"driveId": "cb608548784e064d", "id": parentDirItem["id"]},
+				"name": newFilename
+			})
+			response.raise_for_status()
+			assert response.status_code == 202, "Response code should be 202 (Accepted)"
+			monitorUri = response.headers["Location"]
+			while True:
+				# monitor uris don't require authentication
+				# (https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/long-running-actions?view=odsp-graph-online)
+				jobStatusResponse = get(monitorUri)
+				jobStatusResponse.raise_for_status()
+				jobStatus = jobStatusResponse.json()
+				assert jobStatus["operation"] == "ItemCopy", f"Unexpected status: {jobStatus}"
+				assert jobStatus["status"] in ["inProgress", "completed", "notStarted"], f"Unexpected status: {jobStatus}"
+				if jobStatus["status"] == "completed":
+					break
