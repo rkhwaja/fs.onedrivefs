@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from io import BytesIO, SEEK_END
+from logging import debug
 
 from fs.base import FS
 from fs.enums import ResourceType
@@ -49,11 +50,12 @@ class _UploadOnClose(BytesIO):
 		initialData = None
 		if (self.parsedMode.appending or self.parsedMode.reading) and not self.parsedMode.truncate:
 			response = self.session.get(_PathUrl(path, ":/content"))
+			assert response.status_code != 206, "Partial content response"
 			if response.status_code == 404:
 				if not self.parsedMode.appending:
 					raise ResourceNotFound(path)
-			else:
-				initialData = response.content
+			response.raise_for_status()
+			initialData = response.content
 
 		super().__init__(initialData)
 		if self.parsedMode.appending and initialData is not None:
@@ -366,6 +368,7 @@ class OneDriveFSGraphAPI(FS):
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			if "folder" not in response.json():
+				debug(f"{response.json()}")
 				raise DirectoryExpected(path=path)
 			response = self.session.get(_PathUrl(path, ":/children")) # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
