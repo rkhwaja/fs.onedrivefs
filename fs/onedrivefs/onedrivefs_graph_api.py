@@ -418,6 +418,11 @@ class OneDriveFSGraphAPI(FS):
 				response = self.session.patch(_ItemUrl(itemId, ""), json=itemUpdate)
 				response.raise_for_status()
 				return
+			if response.status_code == 409 and overwrite is False:
+				debug("Retrying move in case it's an erroneous error (see issue #7)")
+				response = self.session.patch(_ItemUrl(itemId, ""), json=itemUpdate)
+				response.raise_for_status()
+				return
 			response.raise_for_status()
 
 	def copy(self, src_path, dst_path, overwrite=False):
@@ -445,7 +450,6 @@ class OneDriveFSGraphAPI(FS):
 			parentDirResponse.raise_for_status()
 			parentDirItem = parentDirResponse.json()
 
-			from json import dumps
 			# This just asynchronously starts the copy
 			response = self.session.post(_ItemUrl(driveItem["id"], "/copy"), json={
 				"parentReference": {"driveId": "cb608548784e064d", "id": parentDirItem["id"]},

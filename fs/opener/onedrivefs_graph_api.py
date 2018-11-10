@@ -2,21 +2,6 @@ from time import time
 
 from .base import Opener
 
-class _TokenStorageForOpener:
-	def __init__(self, path):
-		self.path = path
-
-	def Save(self, token):
-		with open(self.path, "w") as f:
-			dump(token, f)
-
-	def Load(self):
-		try:
-			with open(self.path, "r") as f:
-				return load(f)
-		except FileNotFoundError:
-			return None
-
 def _SaveToken(token):
 	pass
 
