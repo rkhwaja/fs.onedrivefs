@@ -54,8 +54,9 @@ class _UploadOnClose(BytesIO):
 			if response.status_code == 404:
 				if not self.parsedMode.appending:
 					raise ResourceNotFound(path)
-			response.raise_for_status()
-			initialData = response.content
+			else:
+				response.raise_for_status()
+				initialData = response.content
 
 		super().__init__(initialData)
 		if self.parsedMode.appending and initialData is not None:
@@ -452,7 +453,7 @@ class OneDriveFSGraphAPI(FS):
 
 			# This just asynchronously starts the copy
 			response = self.session.post(_ItemUrl(driveItem["id"], "/copy"), json={
-				"parentReference": {"driveId": "cb608548784e064d", "id": parentDirItem["id"]},
+				"parentReference": {"driveId": parentDirItem["parentReference"]["driveId"], "id": parentDirItem["id"]},
 				"name": newFilename
 			})
 			response.raise_for_status()
