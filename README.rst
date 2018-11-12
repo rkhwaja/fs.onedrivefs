@@ -8,7 +8,7 @@ Usage
 
 .. code-block:: python
 
-  onedriveFS = OneDriveFSGraphAPI(
+  onedriveFS = OneDriveFS(
     clientId=<your client id>,
     clientSecret=<your client secret>,
     token=<token JSON saved by oauth2lib>,

@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "fs.onedrivefs"
+packages = [
+    { include = "fs/onedrivefs/*.py"},
+    { include = "fs/opener/*.py"}
+]
+version = "0.2.1"
+description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
+authors = ["Rehan Khwaja <rehan@khwaja.name>"]
+license = "MIT"
+homepage = "https://github.com/rkhwaja/fs.onedrivefs"
+keywords = ["filesystem", "Pyfilesystem2", "onedrive"]
+readme = "README.rst"
+
+[tool.poetry.dependencies]
+python = ">=3.6"
+fs = "^2.1"
+requests = "^2.20"
+requests-oauthlib = "^1.0"
+
+[tool.poetry.dev-dependencies]
+pyperclip = "^1.7"
+pytest = "^3.10"
+
+[tool.poetry.plugins] # Optional super table
+
+[tool.poetry.plugins."fs.opener"]
+"onedrive" = "fs.opener.onedrivefs:OneDriveFSOpener"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
