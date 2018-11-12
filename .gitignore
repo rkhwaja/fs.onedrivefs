@@ -5,6 +5,8 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+Pipfile.lock
+poetry.lock
 
 # MacOS
 .DS_Store
@@ -12,7 +14,6 @@ dist/
 # pytest
 .pytest_cache/
 .env
-Pipfile.lock
 
 # token files
 *.json
