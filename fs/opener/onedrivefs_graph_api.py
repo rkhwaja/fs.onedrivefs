@@ -1,6 +1,7 @@
 from time import time
 
 from .base import Opener
+from ..onedrivefs.onedrivefs_graph_api import OneDriveFSGraphAPI
 
 def _SaveToken(token):
 	pass
