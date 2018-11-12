@@ -11,7 +11,7 @@ from unittest import TestCase
 from uuid import uuid4
 
 from fs.test import FSTestCases
-from fs.onedrivefs.onedrivefs_graph_api import OneDriveFSGraphAPI
+from fs.onedrivefs.onedrivefs import OneDriveFS
 
 class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
 	def __init__(self, path):
@@ -39,7 +39,7 @@ class TokenStorageFile:
 class TestOneDriveFS(FSTestCases, TestCase):
 	def make_fs(self):
 		storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
-		self.fullFS = OneDriveFSGraphAPI(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save) # pylint: disable=attribute-defined-outside-init
+		self.fullFS = OneDriveFS(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save) # pylint: disable=attribute-defined-outside-init
 		self.testSubdir = "/Documents/test-onedrivefs/" + str(uuid4()) # pylint: disable=attribute-defined-outside-init
 		return self.fullFS.makedirs(self.testSubdir)
 
@@ -79,7 +79,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 
 		# sometimes it take a few seconds for the server to process EXIF data
 		# until it's processed, the "photo" section should be missing
-		for i in range(3):
+		for _ in range(3):
 			info_ = self.fs.getinfo("canon-ixus.jpg")
 
 			self.assertTrue(info_.get("photo", "camera_make") in [None, "Canon"])
@@ -96,7 +96,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 				break
 			sleep(5)
 		else:
-			self.assertTrue(False, "EXIF metadata not processed in 10s")
+			self.fail("EXIF metadata not processed in 10s")
 
 	def test_photo_metadata2(self):
 		with self.fs.open("DSCN0010.jpg", "wb") as target:
@@ -105,7 +105,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 
 		# sometimes it take a few seconds for the server to process EXIF data
 		# until it's processed, the "photo" section should be missing
-		for i in range(3):
+		for _ in range(3):
 			info_ = self.fs.getinfo("DSCN0010.jpg")
 
 			self.assertTrue(info_.get("photo", "camera_make") in [None, "NIKON"])
@@ -124,7 +124,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 				break
 			sleep(5)
 		else:
-			self.assertTrue(False, "EXIF metadata not processed in 10s")
+			self.fail("EXIF metadata not processed in 10s")
 
 	def test_hashes(self):
 		with self.fs.open("DSCN0010.jpg", "wb") as target:

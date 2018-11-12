@@ -1,16 +1,14 @@
-from time import time
-
 from .base import Opener
-from ..onedrivefs.onedrivefs_graph_api import OneDriveFSGraphAPI
+from ..onedrivefs.onedrivefs import OneDriveFS
 
-def _SaveToken(token):
+def _SaveToken(_):
 	pass
 
-class OneDriveFSGraphAPIOpener(Opener):
+class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
 	protocols = ["onedrive"]
 
 	@staticmethod
-	def open_fs(fs_url, parse_result, writeable, create, cwd):
+	def open_fs(fs_url, parse_result, writeable, create, cwd): # pylint: disable=unused-argument
 		_, _, directory = parse_result.resource.partition('/')
 
 		# this is missing various fields that hopefully aren't necessary
@@ -18,9 +16,9 @@ class OneDriveFSGraphAPIOpener(Opener):
 			"token_type": "Bearer",
 			"access_token": parse_result.params.get("access_token"),
 			"refresh_token": parse_result.params.get("refresh_token")
-		}		
+		}
 
-		fs = OneDriveFSGraphAPI(
+		fs = OneDriveFS(
 			clientId=parse_result.params["client_id"],
 			clientSecret=parse_result.params.get("client_secret"),
 			token=token,
@@ -28,5 +26,4 @@ class OneDriveFSGraphAPIOpener(Opener):
 
 		if directory:
 			return fs.opendir(directory)
-		else:
-			return fs
+		return fs

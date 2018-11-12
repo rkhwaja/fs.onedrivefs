@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 
 from datetime import datetime
-from io import BytesIO, SEEK_END
+from io import BytesIO
 from logging import debug
 
 from fs.base import FS
 from fs.enums import ResourceType
-from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, InvalidCharsInPath, ResourceNotFound, ResourceReadOnly
+from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, InvalidCharsInPath, ResourceNotFound
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
-from requests import get
-from requests_oauthlib import OAuth2Session
+from requests import get # pylint: disable=wrong-import-order
+from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
 _DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive"
 _INVALID_PATH_CHARS = ":\0\\"
@@ -96,7 +96,7 @@ class _UploadOnClose(BytesIO):
 	def closed(self):
 		return self._closed
 
-	def _ResumableUpload(self, conflictBehavior, filename, uploadSessionUrl):
+	def _ResumableUpload(self, uploadSessionUrl):
 		uploadInfo = self.session.post(uploadSessionUrl)
 		uploadInfo.raise_for_status()
 		uploadUrl = uploadInfo.json()["uploadUrl"]
@@ -123,17 +123,17 @@ class _UploadOnClose(BytesIO):
 					response = self.session.put(_ItemUrl(parentId, f":/{filename}:/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
-					self._ResumableUpload("fail", filename, _ItemUrl(parentId, f":/{filename}:/createUploadSession"))
+					self._ResumableUpload(_ItemUrl(parentId, f":/{filename}:/createUploadSession"))
 			else:
 				# upload a new version
 				if len(self.getvalue()) < 4e6:
 					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
-					self._ResumableUpload("overwrite", filename, _ItemUrl(parentId, f":/{filename}:/createUploadSession"))
+					self._ResumableUpload(_ItemUrl(parentId, f":/{filename}:/createUploadSession"))
 		self._closed = True
 
-class OneDriveFSGraphAPI(FS):
+class OneDriveFS(FS):
 	def __init__(self, clientId, clientSecret, token, SaveToken):
 		super().__init__()
 		self.session = OAuth2Session(

@@ -9,4 +9,4 @@ max-line-length=200
 
 [MESSAGES CONTROL]
 # Can't be bothered with docstrings at the moment
-disable=bad-continuation, fixme, invalid-name, len-as-condition, missing-docstring
+disable=bad-continuation, fixme, invalid-name, len-as-condition, missing-docstring, relative-beyond-top-level
