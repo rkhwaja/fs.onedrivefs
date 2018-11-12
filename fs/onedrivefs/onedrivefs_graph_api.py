@@ -381,6 +381,7 @@ class OneDriveFSGraphAPI(FS):
 			return (self._itemInfo(x) for x in parsedResult["value"])
 
 	def move(self, src_path, dst_path, overwrite=False):
+		_CheckPath(src_path)
 		_CheckPath(dst_path)
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
