@@ -5,8 +5,7 @@ name = "pypi"
 
 [packages]
 fs = "*"
-onedrivesdk = "*"
-temp-utils = "*"
+requests = "*"
 requests-oauthlib = "*"
 
 [dev-packages]

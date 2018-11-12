@@ -8,7 +8,6 @@ from fs.base import FS
 from fs.enums import ResourceType
 from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, InvalidCharsInPath, ResourceNotFound, ResourceReadOnly
 from fs.info import Info
-from fs.iotools import RawWrapper
 from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
