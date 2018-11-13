@@ -2,17 +2,21 @@
 __pycache__/
 
 # Distribution / packaging
-build/
 dist/
-*.egg-info/
 poetry.lock
 
 # MacOS
 .DS_Store
 
 # pytest
-.pytest_cache/
+.pytest_cache
 .env
-
-# token files
 *.json
+
+# pycharm
+.idea
+
+# windows
+.vs
+*.pyproj
+*.sln
