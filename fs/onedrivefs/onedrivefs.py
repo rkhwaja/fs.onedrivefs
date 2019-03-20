@@ -308,9 +308,9 @@ class OneDriveFS(FS):
 			exists = self.exists(path)
 			if parsedMode.exclusive and exists:
 				raise FileExists(path)
-			elif parsedMode.reading and not parsedMode.create and not exists:
+			if parsedMode.reading and not parsedMode.create and not exists:
 				raise ResourceNotFound(path)
-			elif self.isdir(path):
+			if self.isdir(path):
 				raise FileExpected(path)
 			if parsedMode.writing:
 				# make sure that the parent directory exists
