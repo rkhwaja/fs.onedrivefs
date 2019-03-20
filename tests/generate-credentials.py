@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from contextlib import suppress
 from json import dump, dumps, load
 from logging import basicConfig, DEBUG
 from os import environ
@@ -43,11 +42,11 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	tokenStorage.Save(token_)
 	return token_
 
-def EscapeForBash(token):
+def EscapeForBash(token_):
 	charactersToEscape = "{}\"[]: *!+/~^()"
 	for character in charactersToEscape:
-		token = token.replace(character, "\\" + character)
-	return token
+		token_ = token_.replace(character, "\\" + character)
+	return token_
 
 if __name__ == "__main__":
 	basicConfig(stream=stdout, level=DEBUG, format="{levelname[0]}|{module}|{lineno}|{message}", style="{")
