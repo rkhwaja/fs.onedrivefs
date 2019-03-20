@@ -21,6 +21,16 @@ class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
 		with open(self.path, "w") as f:
 			dump(token, f)
 
+class TokenStorageReadOnly:
+	def __init__(self, token):
+		self.token = token
+
+	def Save(self, token):
+		pass
+
+	def Load(self):
+		return self.token
+
 class TokenStorageFile:
 	def __init__(self, path):
 		self.path = path
@@ -38,7 +48,10 @@ class TokenStorageFile:
 
 class TestOneDriveFS(FSTestCases, TestCase):
 	def make_fs(self):
-		storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
+		if "GRAPH_API_TOKEN_READONLY" in environ:
+			storage = TokenStorageReadOnly(environ["GRAPH_API_TOKEN_READONLY"])
+		else:
+			storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
 		self.fullFS = OneDriveFS(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save) # pylint: disable=attribute-defined-outside-init
 		self.testSubdir = "/Documents/test-onedrivefs/" + str(uuid4()) # pylint: disable=attribute-defined-outside-init
 		return self.fullFS.makedirs(self.testSubdir)

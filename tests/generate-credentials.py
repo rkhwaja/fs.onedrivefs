@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from json import dump, load
+from contextlib import suppress
+from json import dump, dumps, load
 from logging import basicConfig, DEBUG
 from os import environ
 from sys import stdout
@@ -45,7 +46,17 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	tokenStorage.Save(token_)
 	return token_
 
+def EscapeForBash(token):
+	charactersToEscape = "{}\"[]: "
+	for character in charactersToEscape:
+		token = token.replace(character, "\\" + character)
+	return token
+
 if __name__ == "__main__":
 	basicConfig(stream=stdout, level=DEBUG, format="{levelname[0]}|{module}|{lineno}|{message}", style="{")
 	token = Authorize(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], environ["GRAPH_API_REDIRECT_URI"], environ["GRAPH_API_TOKEN_PATH"])
+	with suppress(ImportError):
+		from pyperclip import copy
+		copy(EscapeForBash(dumps(token)))
+		print("Escaped token for Travis copied to clipboard")
 	print(token)
