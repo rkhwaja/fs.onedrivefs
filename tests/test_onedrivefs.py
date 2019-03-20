@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 
 from datetime import datetime
 from hashlib import sha1
-from json import dump, load
+from json import dump, load, loads
 from os import environ
 from time import sleep
 from unittest import TestCase
@@ -29,7 +29,7 @@ class TokenStorageReadOnly:
 		pass
 
 	def Load(self):
-		return self.token
+		return loads(self.token)
 
 class TokenStorageFile:
 	def __init__(self, path):

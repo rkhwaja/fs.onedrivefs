@@ -6,6 +6,7 @@ from logging import basicConfig, DEBUG
 from os import environ
 from sys import stdout
 
+from pyperclip import copy
 from requests_oauthlib import OAuth2Session
 
 class TokenStorageFile:
@@ -30,12 +31,8 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	authorizationUrl, _ = session.authorization_url(authorizationBaseUrl)
 	print(f"Go to the following URL and authorize the app: {authorizationUrl}")
 
-	try:
-		from pyperclip import copy
-		copy(authorizationUrl)
-		print("URL copied to clipboard")
-	except ImportError:
-		pass
+	copy(authorizationUrl)
+	print("URL copied to clipboard")
 
 	redirectResponse = input("Paste the full redirect URL here:")
 
@@ -47,7 +44,7 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	return token_
 
 def EscapeForBash(token):
-	charactersToEscape = "{}\"[]: "
+	charactersToEscape = "{}\"[]: *!+/~^()"
 	for character in charactersToEscape:
 		token = token.replace(character, "\\" + character)
 	return token
@@ -55,8 +52,6 @@ def EscapeForBash(token):
 if __name__ == "__main__":
 	basicConfig(stream=stdout, level=DEBUG, format="{levelname[0]}|{module}|{lineno}|{message}", style="{")
 	token = Authorize(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], environ["GRAPH_API_REDIRECT_URI"], environ["GRAPH_API_TOKEN_PATH"])
-	with suppress(ImportError):
-		from pyperclip import copy
-		copy(EscapeForBash(dumps(token)))
-		print("Escaped token for Travis copied to clipboard")
+	copy(EscapeForBash(dumps(token)))
+	print("Escaped token for Travis copied to clipboard")
 	print(token)
