@@ -3,6 +3,9 @@ fs.onedrivefs
 
 Implementation of pyfilesystem2 file system using OneDrive
 
+.. image:: https://travis-ci.org/rkhwaja/fs.onedrivefs.svg?branch=master
+   :target: https://travis-ci.org/rkhwaja/fs.onedrivefs
+
 Usage
 =====
 
