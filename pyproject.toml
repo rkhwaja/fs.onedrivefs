@@ -21,6 +21,7 @@ requests-oauthlib = "^1.0"
 [tool.poetry.dev-dependencies]
 pyperclip = "^1.7"
 pytest = "^3.10"
+pylint = "^2.3"
 
 [tool.poetry.plugins] # Optional super table
 
