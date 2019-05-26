@@ -4,8 +4,10 @@ python:
 - "3.7"
 dist: xenial
 install:
-- pip install fs requests requests-oauthlib pyperclip pylint pytest pyperclip
+- pip install fs requests requests-oauthlib pyperclip pylint pytest pyperclip python-coveralls coverage
 script:
 - pylint fs/onedrivefs/
 - pylint tests/
-- pytest
+- coverage run --source . -m pytest
+after_success:
+- coveralls
