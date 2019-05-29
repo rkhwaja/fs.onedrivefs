@@ -52,8 +52,8 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			storage = TokenStorageReadOnly(environ["GRAPH_API_TOKEN_READONLY"])
 		else:
 			storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
-		self.fullFS = OneDriveFS(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save) # pylint: disable=attribute-defined-outside-init
-		self.testSubdir = "/Documents/test-onedrivefs/" + str(uuid4()) # pylint: disable=attribute-defined-outside-init
+		self.fullFS = OneDriveFS(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save)
+		self.testSubdir = f"/Documents/test-onedrivefs/{uuid4()}"
 		return self.fullFS.makedirs(self.testSubdir)
 
 	def destroy_fs(self, _):

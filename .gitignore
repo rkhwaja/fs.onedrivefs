@@ -4,7 +4,8 @@ __pycache__/
 # Distribution / packaging
 dist/
 poetry.lock
-*.egg-info/*
+*.egg-info
+.venv
 
 # MacOS
 .DS_Store
