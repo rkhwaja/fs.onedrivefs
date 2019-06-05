@@ -1,7 +1,8 @@
 language: python
 python:
-- "3.6"
-- "3.7"
+# - "3.6"
+# - "3.7"
+ - "3.8-dev"
 dist: xenial
 install:
 - pip install fs requests requests-oauthlib pyperclip pylint pytest pyperclip python-coveralls coverage
