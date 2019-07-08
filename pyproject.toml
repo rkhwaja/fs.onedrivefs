@@ -14,7 +14,7 @@ readme = "README.rst"
 
 [tool.poetry.dependencies]
 python = ">=3.6"
-fs = "^2.1"
+fs = ">=2.0.6"
 requests = "^2.20"
 requests-oauthlib = "^1.0"
 
