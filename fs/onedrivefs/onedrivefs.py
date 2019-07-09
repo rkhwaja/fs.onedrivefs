@@ -15,7 +15,9 @@ from fs.time import datetime_to_epoch, epoch_to_datetime
 from requests import get # pylint: disable=wrong-import-order
 from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
-_DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive"
+_SERVICE_ROOT = "https://graph.microsoft.com/v1.0"
+_RESOURCE_ROOT = "me/drive"
+_DRIVE_ROOT = f"{_SERVICE_ROOT}/{_RESOURCE_ROOT}"
 _INVALID_PATH_CHARS = ":\0\\"
 _log = getLogger("fs.onedrivefs")
 
@@ -45,6 +47,12 @@ def _UpdateDict(dict_, sourceKey, targetKey, processFn=None):
 	if sourceKey in dict_:
 		return {targetKey: processFn(dict_[sourceKey]) if processFn is not None else dict_[sourceKey]}
 	return {}
+
+def _HandleError(response):
+	# https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/errors
+	if response.ok is False:
+		_log.error(f"Response text: {response.text}")
+	response.raise_for_status()
 
 class _UploadOnClose(BytesIO):
 	def __init__(self, session, path, itemId, mode):
@@ -146,6 +154,16 @@ class _UploadOnClose(BytesIO):
 					self._ResumableUpload(_ItemUrl(parentId, f":/{filename}:/createUploadSession"))
 		self._closed = True
 
+class SubOneDriveFS(SubFS):
+	def create_subscription(self, notification_url, expiration_date_time, client_state):
+		return self.delegate_fs().create_subscription(notification_url, expiration_date_time, client_state)
+
+	def delete_subscription(self, id_):
+		return self.delegate_fs().delete_subscription(id_)
+
+	def update_subscription(self, id_, expiration_date_time):
+		return self.delegate_fs().update_subscription(id_, expiration_date_time)
+
 class OneDriveFS(FS):
 	def __init__(self, clientId, clientSecret, token, SaveToken):
 		super().__init__()
@@ -168,6 +186,42 @@ class OneDriveFS(FS):
 
 	def __repr__(self):
 		return f"<{self.__class__.__name__}>"
+
+	def create_subscription(self, notification_url, expiration_date_time, client_state):
+		with self._lock:
+			payload = {
+				"changeType": "updated", # comma-separated list of created, updated, deleted
+				"notificationUrl": notification_url,
+				"resource": f"/{_RESOURCE_ROOT}/root",
+				"expirationDateTime": expiration_date_time.isoformat() + "Z",
+				"clientState": client_state
+			}
+			response = self.session.post(f"{_SERVICE_ROOT}/subscriptions", json=payload)
+			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
+			assert response.status_code == 201, "Expected 201 Created response"
+			subscription = response.json()
+			assert subscription["changeType"] == payload["changeType"]
+			assert subscription["notificationUrl"] == payload["notificationUrl"]
+			assert subscription["resource"] == payload["resource"]
+			assert "expirationDateTime" in subscription
+			assert subscription["clientState"] == payload["clientState"]
+			return subscription
+
+	def delete_subscription(self, id_):
+		with self._lock:
+			response = self.session.delete(f"{_SERVICE_ROOT}/subscriptions/{id_}")
+			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
+			assert response.status_code == 204, "Expected 204 No content"
+
+	def update_subscription(self, id_, expiration_date_time):
+		with self._lock:
+			response = self.session.patch(f"{_SERVICE_ROOT}/subscriptions/{id_}", json={"expirationDateTime": expiration_date_time.isoformat() + "Z"})
+			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
+			assert response.status_code == 200, "Expected 200 OK"
+			subscription = response.json()
+			assert subscription["id"] == id_
+			assert "expirationDateTime" in subscription
+			return subscription
 
 	# Translates OneDrive DriveItem dictionary to an fs Info object
 	def _itemInfo(self, item): # pylint: disable=no-self-use

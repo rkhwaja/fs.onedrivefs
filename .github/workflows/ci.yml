@@ -42,4 +42,4 @@ jobs:
         GRAPH_API_TOKEN_READONLY: ${{ secrets.GRAPH_API_TOKEN_READONLY }}
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
       run: |
-        coverage run --source . -m pytest
+        coverage run --source . -m pytest -k subscriptions

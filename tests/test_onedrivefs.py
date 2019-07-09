@@ -2,21 +2,23 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha1
 from json import dump, load, loads
-from logging import warning
+from logging import info, warning
 from os import environ
 from time import sleep
 from unittest import TestCase
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 from uuid import uuid4
 
+from fs.onedrivefs import OneDriveFS, OneDriveFSOpener
 from fs.opener import open_fs, registry
 from fs.subfs import SubFS
 from fs.test import FSTestCases
-
-from fs.onedrivefs import OneDriveFS, OneDriveFSOpener
+from pyngrok.ngrok import connect # pylint: disable=wrong-import-order
+from pytest import fixture, mark # pylint: disable=wrong-import-order
+from pytest_localserver.http import WSGIServer # pylint: disable=wrong-import-order
 
 _SAFE_TEST_DIR = "Documents/test-onedrivefs"
 
@@ -33,7 +35,7 @@ class TokenStorageReadOnly:
 		self.token = token
 
 	def Save(self, token):
-		pass
+		self.token = token
 
 	def Load(self):
 		return loads(self.token)
@@ -52,6 +54,32 @@ class TokenStorageFile:
 				return load(f)
 		except FileNotFoundError:
 			return None
+
+class simple_app: # pylint: disable=too-few-public-methods
+	def __init__(self):
+		self.notified = False
+
+	def __call__(self, environ_, start_response):
+		"""Simplest possible WSGI application"""
+		status = "200 OK"
+		response_headers = [("Content-type", "text/plain")]
+		start_response(status, response_headers)
+		parsedQS = parse_qs(environ_["REQUEST_URI"][2:])
+		if "validationToken" in parsedQS:
+			info("Validating subscription")
+			return [parsedQS["validationToken"][0].encode()]
+		info(f"env: {environ_}")
+		info(f"Input: {environ_['wsgi.input'].read()}")
+		self.notified = True
+		return ""
+
+@fixture(scope="class")
+def testserver(request):
+	server = WSGIServer(application=simple_app())
+	request.cls.server = server
+	server.start()
+	request.addfinalizer(server.stop)
+	return server
 
 def CredentialsStorage():
 	if "GRAPH_API_TOKEN_READONLY" in environ:
@@ -95,6 +123,24 @@ class TestOneDriveFS(FSTestCases, TestCase):
 	def destroy_fs(self, _):
 		self.fullFS.removetree(self.testSubdir)
 
+	@mark.usefixtures("testserver")
+	def test_subscriptions(self):
+		port = urlparse(self.server.url).port # pylint: disable=no-member
+		info(f"Port: {port}")
+		info(self.server.url) # pylint: disable=no-member
+		with open("ngrok.yml", "w") as f:
+			f.write(f"authtoken: {environ['NGROK_AUTH_TOKEN']}")
+		publicUrl = connect(proto="http", port=port, config_path="ngrok.yml").replace("http", "https")
+		info(f"publicUrl: {publicUrl}")
+		expirationDateTime = datetime.now() + timedelta(hours=12)
+		subscription = self.fs.create_subscription(publicUrl, expirationDateTime, "client_state")
+		info(f"subscription id: {subscription['id']}")
+		self.fs.touch("touched-file.txt")
+		subscription = self.fs.update_subscription(subscription["id"], expirationDateTime + timedelta(hours=12))
+		# TODO - need to wait for some time for the notification to come through
+		assert self.server.app.notified is True, f"Not notified: {self.server.app.notified}" # pylint: disable=no-member
+		self.fs.delete_subscription(subscription["id"])
+
 	def test_overwrite_file(self):
 		with self.fs.open("small_file_to_overwrite.bin", "wb") as f:
 			f.write(b"x" * 10)
@@ -119,7 +165,6 @@ class TestOneDriveFS(FSTestCases, TestCase):
 
 		with self.fs.open("large_file_to_overwrite.txt", "w") as f:
 			f.write("y" * 4000000)
-
 
 	def test_photo_metadata(self):
 		with self.fs.open("canon-ixus.jpg", "wb") as target:
