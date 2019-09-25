@@ -127,7 +127,7 @@ class _UploadOnClose(BytesIO):
 			else:
 				# upload a new version
 				if len(self.getvalue()) < 4e6:
-					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
+					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue(), params={"@microsoft.graph.conflictBehavior": "replace"})
 					response.raise_for_status()
 				else:
 					self._ResumableUpload(_ItemUrl(parentId, f":/{filename}:/createUploadSession"))
