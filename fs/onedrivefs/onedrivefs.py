@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from io import BytesIO
-from logging import debug
+from logging import debug, warning
 
 from fs.base import FS
 from fs.enums import ResourceType
@@ -127,7 +127,11 @@ class _UploadOnClose(BytesIO):
 			else:
 				# upload a new version
 				if len(self.getvalue()) < 4e6:
-					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue(), params={"@microsoft.graph.conflictBehavior": "replace"})
+					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
+					# workaround for possible OneDrive bug
+					if response.status_code == 409:
+						warning(f"Retrying upload due to {response}")
+						response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
 					self._ResumableUpload(_ItemUrl(parentId, f":/{filename}:/createUploadSession"))
@@ -465,7 +469,7 @@ class OneDriveFS(FS):
 				jobStatusResponse = get(monitorUri)
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()
-				assert jobStatus["operation"] == "ItemCopy", f"Unexpected status: {jobStatus}"
-				assert jobStatus["status"] in ["inProgress", "completed", "notStarted"], f"Unexpected status: {jobStatus}"
+				if jobStatus["operation"] != "itemCopy" or jobStatus["status"] not in ["inProgress", "completed", "notStarted"]:
+					warning(f"Unexpected status: {jobStatus}")
 				if jobStatus["status"] == "completed":
 					break
