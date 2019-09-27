@@ -4,7 +4,7 @@ packages = [
     { include = "fs/onedrivefs/*.py"},
     { include = "fs/opener/*.py"}
 ]
-version = "0.2.3"
+version = "0.2.4"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 authors = ["Rehan Khwaja <rehan@khwaja.name>"]
 license = "MIT"
