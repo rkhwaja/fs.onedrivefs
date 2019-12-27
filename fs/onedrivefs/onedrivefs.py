@@ -27,6 +27,11 @@ def _ItemUrl(itemId, extra):
 	return f"{_DRIVE_ROOT}/items/{itemId}{extra}"
 
 def _PathUrl(path, extra):
+	# the path must start with '/'
+	if path in ["/", ""]: # special handling for the root directory
+		return f"{_DRIVE_ROOT}/root{extra}"
+	if extra != "":
+		extra = ":" + extra
 	return f"{_DRIVE_ROOT}/root:{path}{extra}"
 
 def _ParseDateTime(dt):
@@ -48,7 +53,7 @@ class _UploadOnClose(BytesIO):
 		self.parsedMode = mode
 		initialData = None
 		if (self.parsedMode.appending or self.parsedMode.reading) and not self.parsedMode.truncate:
-			response = self.session.get(_PathUrl(path, ":/content"))
+			response = self.session.get(_PathUrl(path, "/content"))
 			assert response.status_code != 206, "Partial content response"
 			if response.status_code == 404:
 				if not self.parsedMode.appending:
@@ -296,7 +301,7 @@ class OneDriveFS(FS):
 				if response.status_code != 404:
 					raise DirectoryExists(path)
 
-			response = self.session.post(_PathUrl(parentDir, ":/children"),
+			response = self.session.post(_PathUrl(parentDir, "/children"),
 				json={"name": basename(path), "folder": {}})
 			# TODO - will need to deal with these errors locally but don't know what they are yet
 			response.raise_for_status()
@@ -354,7 +359,7 @@ class OneDriveFS(FS):
 			if "folder" not in itemData:
 				raise DirectoryExpected(path)
 
-			response = self.session.get(_PathUrl(path, ":/children"))
+			response = self.session.get(_PathUrl(path, "/children"))
 			response.raise_for_status()
 			childrenData = response.json()
 			if len(childrenData["value"]) > 0:
@@ -374,7 +379,7 @@ class OneDriveFS(FS):
 			if "folder" not in response.json():
 				debug(f"{response.json()}")
 				raise DirectoryExpected(path=path)
-			response = self.session.get(_PathUrl(path, ":/children")) # assumes path is the full path, starting with "/"
+			response = self.session.get(_PathUrl(path, "/children")) # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			parsedResult = response.json()

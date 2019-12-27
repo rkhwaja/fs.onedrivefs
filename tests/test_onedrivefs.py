@@ -46,13 +46,20 @@ class TokenStorageFile:
 		except FileNotFoundError:
 			return None
 
+def FullFS():
+	if "GRAPH_API_TOKEN_READONLY" in environ:
+		storage = TokenStorageReadOnly(environ["GRAPH_API_TOKEN_READONLY"])
+	else:
+		storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
+	return OneDriveFS(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save)
+
+def test_list_root():
+	fs = FullFS()
+	assert fs.listdir("/") == fs.listdir("")
+
 class TestOneDriveFS(FSTestCases, TestCase):
 	def make_fs(self):
-		if "GRAPH_API_TOKEN_READONLY" in environ:
-			storage = TokenStorageReadOnly(environ["GRAPH_API_TOKEN_READONLY"])
-		else:
-			storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
-		self.fullFS = OneDriveFS(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save)
+		self.fullFS = FullFS()
 		self.testSubdir = f"/Documents/test-onedrivefs/{uuid4()}"
 		return self.fullFS.makedirs(self.testSubdir)
 
