@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from io import BytesIO
-from logging import debug, warning
+from logging import getLogger
 
 from fs.base import FS
 from fs.enums import ResourceType
@@ -17,6 +17,7 @@ from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
 _DRIVE_ROOT = "https://graph.microsoft.com/v1.0/me/drive"
 _INVALID_PATH_CHARS = ":\0\\"
+_log = getLogger("fs.onedrivefs")
 
 def _CheckPath(path):
 	for char in _INVALID_PATH_CHARS:
@@ -135,7 +136,7 @@ class _UploadOnClose(BytesIO):
 					response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
 					# workaround for possible OneDrive bug
 					if response.status_code == 409:
-						warning(f"Retrying upload due to {response}")
+						_log.warning(f"Retrying upload due to {response}")
 						response = self.session.put(_ItemUrl(self.itemId, "/content"), data=self.getvalue())
 					response.raise_for_status()
 				else:
@@ -377,7 +378,7 @@ class OneDriveFS(FS):
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			if "folder" not in response.json():
-				debug(f"{response.json()}")
+				_log.debug(f"{response.json()}")
 				raise DirectoryExpected(path=path)
 			response = self.session.get(_PathUrl(path, "/children")) # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
@@ -429,7 +430,7 @@ class OneDriveFS(FS):
 				response.raise_for_status()
 				return
 			if response.status_code == 409 and overwrite is False:
-				debug("Retrying move in case it's an erroneous error (see issue #7)")
+				_log.debug("Retrying move in case it's an erroneous error (see issue #7)")
 				response = self.session.patch(_ItemUrl(itemId, ""), json=itemUpdate)
 				response.raise_for_status()
 				return
@@ -475,6 +476,6 @@ class OneDriveFS(FS):
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()
 				if jobStatus["operation"] != "itemCopy" or jobStatus["status"] not in ["inProgress", "completed", "notStarted"]:
-					warning(f"Unexpected status: {jobStatus}")
+					_log.warning(f"Unexpected status: {jobStatus}")
 				if jobStatus["status"] == "completed":
 					break
