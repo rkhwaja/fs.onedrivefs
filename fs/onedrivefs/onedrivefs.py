@@ -226,7 +226,8 @@ class OneDriveFS(FS):
 		return Info(rawInfo)
 
 	def getinfo(self, path, namespaces=None):
-		assert path[0] == "/"
+		if path[0] != "/":
+			path = "/" + path
 		_CheckPath(path)
 		with self._lock:
 			response = self.session.get(_PathUrl(path, ""))

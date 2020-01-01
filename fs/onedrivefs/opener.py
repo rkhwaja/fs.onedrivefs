@@ -1,5 +1,8 @@
-from .base import Opener
-from ..onedrivefs.onedrivefs import OneDriveFS
+__all__ = ["OneDriveFSOpener"]
+
+from fs.opener import Opener
+
+from .onedrivefs import OneDriveFS
 
 def _SaveToken(_):
 	pass
@@ -9,7 +12,7 @@ class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
 
 	@staticmethod
 	def open_fs(fs_url, parse_result, writeable, create, cwd): # pylint: disable=unused-argument
-		_, _, directory = parse_result.resource.partition('/')
+		directory = parse_result.resource
 
 		# this is missing various fields that hopefully aren't necessary
 		token = {

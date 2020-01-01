@@ -8,10 +8,16 @@ from json import dump, load, loads
 from os import environ
 from time import sleep
 from unittest import TestCase
+from urllib.parse import urlencode
 from uuid import uuid4
 
+from fs.opener import open_fs, registry
+from fs.subfs import SubFS
 from fs.test import FSTestCases
-from fs.onedrivefs.onedrivefs import OneDriveFS
+
+from fs.onedrivefs import OneDriveFS, OneDriveFSOpener
+
+_SAFE_TEST_DIR = "Documents/test-onedrivefs"
 
 class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
 	def __init__(self, path):
@@ -46,21 +52,43 @@ class TokenStorageFile:
 		except FileNotFoundError:
 			return None
 
-def FullFS():
+def CredentialsStorage():
 	if "GRAPH_API_TOKEN_READONLY" in environ:
-		storage = TokenStorageReadOnly(environ["GRAPH_API_TOKEN_READONLY"])
-	else:
-		storage = TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
+		return TokenStorageReadOnly(environ["GRAPH_API_TOKEN_READONLY"])
+	return TokenStorageFile(environ["GRAPH_API_TOKEN_PATH"])
+
+def FullFS():
+	storage = CredentialsStorage()
 	return OneDriveFS(environ["GRAPH_API_CLIENT_ID"], environ["GRAPH_API_CLIENT_SECRET"], storage.Load(), storage.Save)
 
 def test_list_root():
 	fs = FullFS()
 	assert fs.listdir("/") == fs.listdir("")
 
+def test_opener_format():
+	registry.install(OneDriveFSOpener())
+	client_id = environ["GRAPH_API_CLIENT_ID"]
+	client_secret = environ["GRAPH_API_CLIENT_SECRET"]
+	credentials = CredentialsStorage().Load()
+	access_token = credentials["access_token"]
+	refresh_token = credentials["refresh_token"]
+
+	encodedParameters = urlencode({"access_token": access_token, "refresh_token": refresh_token, "client_id": client_id, "client_secret": client_secret})
+
+	# Without the initial "/" character, it should still be assumed to relative to the root
+	fs = open_fs(f"onedrive://{_SAFE_TEST_DIR}?" + encodedParameters)
+	assert isinstance(fs, SubFS), str(fs)
+	assert fs._sub_dir == f"/{_SAFE_TEST_DIR}" # pylint: disable=protected-access
+
+	# It should still accept the initial "/" character
+	fs = open_fs(f"onedrive:///{_SAFE_TEST_DIR}?" + encodedParameters)
+	assert isinstance(fs, SubFS), str(fs)
+	assert fs._sub_dir == f"/{_SAFE_TEST_DIR}" # pylint: disable=protected-access
+
 class TestOneDriveFS(FSTestCases, TestCase):
 	def make_fs(self):
 		self.fullFS = FullFS()
-		self.testSubdir = f"/Documents/test-onedrivefs/{uuid4()}"
+		self.testSubdir = f"/{_SAFE_TEST_DIR}/{uuid4()}"
 		return self.fullFS.makedirs(self.testSubdir)
 
 	def destroy_fs(self, _):
