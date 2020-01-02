@@ -114,6 +114,9 @@ class _UploadOnClose(BytesIO):
 			dataToSend = self.getvalue()[bytesSent:bytesSent + length]
 			assert len(dataToSend) == length
 			response = self.session.put(uploadUrl, data=dataToSend, headers={"content-range": f"bytes {bytesSent}-{bytesSent + length - 1}/{size}"})
+			if response.status_code == 409:
+				_log.warning(f"Retrying upload due to {response}")
+				response = self.session.put(uploadUrl, data=dataToSend, headers={"content-range": f"bytes {bytesSent}-{bytesSent + length - 1}/{size}"})
 			response.raise_for_status()
 			bytesSent += length
 
