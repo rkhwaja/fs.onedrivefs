@@ -133,6 +133,10 @@ class _UploadOnClose(BytesIO):
 				response = self.session.put(uploadUrl, data=dataToSend, headers={'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'})
 			response.raise_for_status()
 			bytesSent += length
+			if bytesSent < size and response.status_code != 202:
+				_log.warning(f"Unexpected response while uploading: {response}")
+			elif bytesSent >= size and response.status_code not in [200, 201]:
+				_log.warning(f"Unexpected response after last upload: {response}")
 
 	def close(self):
 		if self.parsedMode.writing:
