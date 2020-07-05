@@ -9,7 +9,7 @@ authors = ["Rehan Khwaja <rehan@khwaja.name>"]
 license = "MIT"
 homepage = "https://github.com/rkhwaja/fs.onedrivefs"
 keywords = ["filesystem", "Pyfilesystem2", "onedrive"]
-readme = "README.rst"
+readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.6"
