@@ -22,6 +22,7 @@ pyperclip = "^1.7"
 pytest = "^3.10"
 pylint = ">=2.5.3"
 python-coveralls = "^2.9.3"
+pylint-quotes = "^0.2.1"
 
 [tool.poetry.plugins] # Optional super table
 
@@ -31,6 +32,7 @@ python-coveralls = "^2.9.3"
 [tool.pylint.format]
 indent-string = "\t"
 max-line-length = "200"
+string-quote = "double"
 
 [tool.pylint.messages_control]
 # no-member to remove false positives with objects constructed via google's discovery protocol

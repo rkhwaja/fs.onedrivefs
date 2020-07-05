@@ -8,7 +8,7 @@ install:
 - pip install poetry
 - poetry install
 script:
-- pylint fs/onedrivefs/ tests/
+- pylint --load-plugins pylint_quotes fs/onedrivefs/ tests/
 - coverage run --source . -m pytest
 after_success:
 - coveralls
