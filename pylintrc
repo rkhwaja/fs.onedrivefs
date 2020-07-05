@@ -1,7 +1,0 @@
-[FORMAT]
-indent-string=\t
-max-line-length=200
-
-[MESSAGES CONTROL]
-# Can't be bothered with docstrings at the moment
-disable=bad-continuation, duplicate-code, fixme, invalid-name, len-as-condition, logging-format-interpolation, missing-docstring, relative-beyond-top-level
