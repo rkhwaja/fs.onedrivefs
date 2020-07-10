@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from logging import getLogger
 
@@ -42,6 +42,9 @@ def _ParseDateTime(dt):
 		return datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S.%fZ")
 	except ValueError:
 		return datetime.strptime(dt, "%Y-%m-%dT%H:%M:%SZ")
+
+def _FormatDateTime(dt):
+	return dt.astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
 
 def _UpdateDict(dict_, sourceKey, targetKey, processFn=None):
 	if sourceKey in dict_:
@@ -165,6 +168,8 @@ class SubOneDriveFS(SubFS):
 		return self.delegate_fs().update_subscription(id_, expiration_date_time)
 
 class OneDriveFS(FS):
+	subfs_class = SubOneDriveFS
+
 	def __init__(self, clientId, clientSecret, token, SaveToken):
 		super().__init__()
 		self.session = OAuth2Session(
@@ -190,10 +195,10 @@ class OneDriveFS(FS):
 	def create_subscription(self, notification_url, expiration_date_time, client_state):
 		with self._lock:
 			payload = {
-				"changeType": "updated", # comma-separated list of created, updated, deleted
+				"changeType": "updated", # OneDrive only supports updated
 				"notificationUrl": notification_url,
 				"resource": f"/{_RESOURCE_ROOT}/root",
-				"expirationDateTime": expiration_date_time.isoformat() + "Z",
+				"expirationDateTime": _FormatDateTime(expiration_date_time),
 				"clientState": client_state
 			}
 			response = self.session.post(f"{_SERVICE_ROOT}/subscriptions", json=payload)
@@ -205,6 +210,7 @@ class OneDriveFS(FS):
 			assert subscription["resource"] == payload["resource"]
 			assert "expirationDateTime" in subscription
 			assert subscription["clientState"] == payload["clientState"]
+			_log.debug(f"Subscription created successfully: {subscription}")
 			return subscription
 
 	def delete_subscription(self, id_):
@@ -215,7 +221,7 @@ class OneDriveFS(FS):
 
 	def update_subscription(self, id_, expiration_date_time):
 		with self._lock:
-			response = self.session.patch(f"{_SERVICE_ROOT}/subscriptions/{id_}", json={"expirationDateTime": expiration_date_time.isoformat() + "Z"})
+			response = self.session.patch(f"{_SERVICE_ROOT}/subscriptions/{id_}", json={"expirationDateTime": _FormatDateTime(expiration_date_time)})
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 200, "Expected 200 OK"
 			subscription = response.json()

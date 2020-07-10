@@ -2,7 +2,7 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from hashlib import sha1
 from json import dump, load, loads
 from logging import info, warning
@@ -65,11 +65,14 @@ class simple_app: # pylint: disable=too-few-public-methods
 		response_headers = [("Content-type", "text/plain")]
 		start_response(status, response_headers)
 		parsedQS = parse_qs(environ_["REQUEST_URI"][2:])
+		info(f"Received: {parsedQS}")
+		info(f"env: {environ_}")
 		if "validationToken" in parsedQS:
 			info("Validating subscription")
 			return [parsedQS["validationToken"][0].encode()]
-		info(f"env: {environ_}")
-		info(f"Input: {environ_['wsgi.input'].read()}")
+		inputStream = environ_["wsgi.input"]
+		info(f"Input: {inputStream}")
+		info("NOTIFIED")
 		self.notified = True
 		return ""
 
@@ -132,14 +135,22 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			f.write(f"authtoken: {environ['NGROK_AUTH_TOKEN']}")
 		publicUrl = connect(proto="http", port=port, config_path="ngrok.yml").replace("http", "https")
 		info(f"publicUrl: {publicUrl}")
-		expirationDateTime = datetime.now() + timedelta(hours=12)
+		expirationDateTime = datetime.now(timezone.utc) + timedelta(minutes=5)
 		subscription = self.fs.create_subscription(publicUrl, expirationDateTime, "client_state")
 		info(f"subscription id: {subscription['id']}")
 		self.fs.touch("touched-file.txt")
-		subscription = self.fs.update_subscription(subscription["id"], expirationDateTime + timedelta(hours=12))
-		# TODO - need to wait for some time for the notification to come through
-		assert self.server.app.notified is True, f"Not notified: {self.server.app.notified}" # pylint: disable=no-member
+		info("Touched the file, waiting...")
+		# subscription = self.fs.update_subscription(subscription["id"], expirationDateTime + timedelta(hours=12))
+		# need to wait for some time for the notification to come through, but also process incoming http requests
+		for _ in range(10):
+			if self.server.app.notified is True: # pylint: disable=no-member
+				break
+			sleep(1)
+		# sleep(2)
+		info("Sleep done, deleting subscription")
 		self.fs.delete_subscription(subscription["id"])
+		info("subscription deleted")
+		assert self.server.app.notified is True, f"Not notified: {self.server.app.notified}" # pylint: disable=no-member
 
 	def test_overwrite_file(self):
 		with self.fs.open("small_file_to_overwrite.bin", "wb") as f:
