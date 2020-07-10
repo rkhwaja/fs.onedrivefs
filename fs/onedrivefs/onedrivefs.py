@@ -211,7 +211,7 @@ class OneDriveFS(FS):
 			assert "expirationDateTime" in subscription
 			assert subscription["clientState"] == payload["clientState"]
 			_log.debug(f"Subscription created successfully: {subscription}")
-			return subscription
+			return subscription["id"]
 
 	def delete_subscription(self, id_):
 		with self._lock:
@@ -227,7 +227,6 @@ class OneDriveFS(FS):
 			subscription = response.json()
 			assert subscription["id"] == id_
 			assert "expirationDateTime" in subscription
-			return subscription
 
 	# Translates OneDrive DriveItem dictionary to an fs Info object
 	def _itemInfo(self, item): # pylint: disable=no-self-use

@@ -136,8 +136,8 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		publicUrl = connect(proto="http", port=port, config_path="ngrok.yml").replace("http", "https")
 		info(f"publicUrl: {publicUrl}")
 		expirationDateTime = datetime.now(timezone.utc) + timedelta(minutes=5)
-		subscription = self.fs.create_subscription(publicUrl, expirationDateTime, "client_state")
-		info(f"subscription id: {subscription['id']}")
+		id_ = self.fs.create_subscription(publicUrl, expirationDateTime, "client_state")
+		info(f"subscription id: {id_}")
 		self.fs.touch("touched-file.txt")
 		info("Touched the file, waiting...")
 		# subscription = self.fs.update_subscription(subscription["id"], expirationDateTime + timedelta(hours=12))
@@ -148,7 +148,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			sleep(1)
 		# sleep(2)
 		info("Sleep done, deleting subscription")
-		self.fs.delete_subscription(subscription["id"])
+		self.fs.delete_subscription(id_)
 		info("subscription deleted")
 		assert self.server.app.notified is True, f"Not notified: {self.server.app.notified}" # pylint: disable=no-member
 
