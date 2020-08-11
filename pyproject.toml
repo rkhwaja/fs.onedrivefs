@@ -34,6 +34,9 @@ click = "^7.0"
 [tool.poetry.plugins."fs.opener"]
 "onedrive" = "fs.onedrivefs.opener:OneDriveFSOpener"
 
+[tool.pylint.master]
+load-plugins = "pylint_quotes"
+
 [tool.pylint.format]
 indent-string = "\t"
 max-line-length = "200"

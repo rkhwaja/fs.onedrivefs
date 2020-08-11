@@ -32,10 +32,10 @@ jobs:
         pip install poetry
         poetry config virtualenvs.create false
         poetry install
-    - name: pylint
+    - name: Linter
       run: |
-        pylint --load-plugins pylint_quotes fs/onedrivefs/ tests/
-    - name: tests
+        pylint fs/onedrivefs/ tests/
+    - name: Tests
       env:
         GRAPH_API_CLIENT_ID: ${{ secrets.GRAPH_API_CLIENT_ID }}
         GRAPH_API_CLIENT_SECRET: ${{ secrets.GRAPH_API_CLIENT_SECRET }}

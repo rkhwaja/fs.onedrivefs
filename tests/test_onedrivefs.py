@@ -22,14 +22,6 @@ from pytest_localserver.http import WSGIServer # pylint: disable=wrong-import-or
 
 _SAFE_TEST_DIR = "Documents/test-onedrivefs"
 
-class InMemoryTokenSaver: # pylint: disable=too-few-public-methods
-	def __init__(self, path):
-		self.path = path
-
-	def __call__(self, token):
-		with open(self.path, "w") as f:
-			dump(token, f)
-
 class TokenStorageReadOnly:
 	def __init__(self, token):
 		self.token = token
