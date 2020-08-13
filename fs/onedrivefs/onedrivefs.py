@@ -25,6 +25,9 @@ def _CheckPath(path):
 	for char in _INVALID_PATH_CHARS:
 		if char in path:
 			raise InvalidCharsInPath(path)
+	if path.startswith("/") is False:
+		path = "/" + path
+	return path
 
 def _ItemUrl(itemId, extra):
 	return f"{_DRIVE_ROOT}/items/{itemId}{extra}"
@@ -288,9 +291,7 @@ class OneDriveFS(FS):
 		return Info(rawInfo)
 
 	def getinfo(self, path, namespaces=None):
-		if path[0] != "/":
-			path = "/" + path
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			response = self.session.get(_PathUrl(path, ""))
 			if response.status_code == 404:
@@ -299,7 +300,7 @@ class OneDriveFS(FS):
 			return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			response = self.session.get(_PathUrl(path, ""))
 			if response.status_code == 404:
@@ -345,12 +346,12 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def listdir(self, path):
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			return [x.name for x in self.scandir(path)]
 
 	def makedir(self, path, permissions=None, recreate=False):
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			parentDir = dirname(path)
 			# parentDir here is expected to have a leading slash
@@ -373,7 +374,7 @@ class OneDriveFS(FS):
 			return SubFS(self, path)
 
 	def openbin(self, path, mode="r", buffering=-1, **options):
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			if "t" in mode:
 				raise ValueError("Text mode is not allowed in openbin")
@@ -400,7 +401,7 @@ class OneDriveFS(FS):
 			return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
 
 	def remove(self, path):
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			response = self.session.get(_PathUrl(path, ""))
 			if response.status_code == 404:
@@ -413,7 +414,7 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def removedir(self, path):
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			# need to get the item id for this path
 			response = self.session.get(_PathUrl(path, ""))
@@ -435,7 +436,7 @@ class OneDriveFS(FS):
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
-		_CheckPath(path)
+		path = _CheckPath(path)
 		with self._lock:
 			response = self.session.get(_PathUrl(path, "")) # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
@@ -453,8 +454,8 @@ class OneDriveFS(FS):
 			return (self._itemInfo(x) for x in parsedResult["value"])
 
 	def move(self, src_path, dst_path, overwrite=False):
-		_CheckPath(src_path)
-		_CheckPath(dst_path)
+		src_path = _CheckPath(src_path)
+		dst_path = _CheckPath(dst_path)
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
@@ -500,8 +501,8 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def copy(self, src_path, dst_path, overwrite=False):
-		_CheckPath(src_path)
-		_CheckPath(dst_path)
+		src_path = _CheckPath(src_path)
+		dst_path = _CheckPath(dst_path)
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
