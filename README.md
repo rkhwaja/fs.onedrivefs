@@ -2,7 +2,7 @@
 
 Implementation of pyfilesystem2 file system using OneDrive
 
-![image](https://github.com/rkhwaja/fs.onedrivefs/workflows/ci/badge.svg) [![image](https://coveralls.io/repos/github/rkhwaja/fs.onedrivefs/badge.svg?branch=master)](https://coveralls.io/github/rkhwaja/fs.onedrivefs?branch=master)
+![image](https://github.com/rkhwaja/fs.onedrivefs/workflows/ci/badge.svg) [![codecov](https://codecov.io/gh/rkhwaja/fs.onedrivefs/branch/master/graph/badge.svg)](https://codecov.io/gh/rkhwaja/fs.onedrivefs)
 
 # Usage
 
