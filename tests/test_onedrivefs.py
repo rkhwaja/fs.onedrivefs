@@ -20,6 +20,8 @@ from pyngrok.ngrok import connect # pylint: disable=wrong-import-order
 from pytest import fixture, mark # pylint: disable=wrong-import-order
 from pytest_localserver.http import WSGIServer # pylint: disable=wrong-import-order
 
+from .github import UploadSecret
+
 _SAFE_TEST_DIR = 'Documents/test-onedrivefs'
 
 class TokenStorageReadOnly:
@@ -28,6 +30,7 @@ class TokenStorageReadOnly:
 
 	def Save(self, token):
 		self.token = token
+		UploadSecret(token)
 
 	def Load(self):
 		return loads(self.token)
@@ -47,7 +50,7 @@ class TokenStorageFile:
 		except FileNotFoundError:
 			return None
 
-class simple_app: # pylint: disable=too-few-public-methods
+class SimpleApp: # pylint: disable=too-few-public-methods
 	def __init__(self):
 		self.notified = False
 
@@ -70,7 +73,7 @@ class simple_app: # pylint: disable=too-few-public-methods
 
 @fixture(scope='class')
 def testserver(request):
-	server = WSGIServer(application=simple_app())
+	server = WSGIServer(application=SimpleApp())
 	request.cls.server = server
 	server.start()
 	request.addfinalizer(server.stop)
