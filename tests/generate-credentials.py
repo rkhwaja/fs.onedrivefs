@@ -1,16 +1,14 @@
 #!/usr/bin/env python
 
-from base64 import b64encode
-from json import dump, dumps, load
+from json import dump, load
 from logging import basicConfig, DEBUG
 from os import environ
 from sys import stdout
 
-from nacl import encoding, public
 from pyperclip import copy
-from requests import put
-from requests.auth import HTTPBasicAuth
 from requests_oauthlib import OAuth2Session
+
+from github import UploadSecret
 
 class TokenStorageFile:
 	def __init__(self, path):
@@ -26,13 +24,6 @@ class TokenStorageFile:
 				return load(f)
 		except FileNotFoundError:
 			return None
-
-def EncryptForGithubSecret(publicKey: str, secretValue: str) -> str:
-	"""Encrypt a Unicode string using the public key."""
-	publicKey = public.PublicKey(publicKey.encode('utf-8'), encoding.Base64Encoder())
-	sealedBox = public.SealedBox(publicKey)
-	encrypted = sealedBox.encrypt(secretValue.encode('utf-8'))
-	return b64encode(encrypted).decode('utf-8')
 
 def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	authorizationBaseUrl = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize'
@@ -52,24 +43,11 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	token_ = session.fetch_token(tokenUrl, client_secret=clientSecret, authorization_response=redirectResponse, include_client_id=True)
 	tokenStorage.Save(token_)
 	if 'GITHUB_API_PERSONAL_TOKEN' in environ:
-		auth = HTTPBasicAuth(environ['GITHUB_USERNAME'], environ['GITHUB_API_PERSONAL_TOKEN'])
-		headers = {'Accept': 'application/vnd.github.v3+json'}
-
-		owner = environ['GITHUB_REPO_OWNER']
-		baseUrl = f'https://api.github.com/repos/{owner}/fs.onedrivefs/actions/secrets'
-
-		data = {
-			'encrypted_value': EncryptForGithubSecret(environ['GITHUB_REPO_PUBLIC_KEY'], dumps(token_)),
-			'key_id': environ['GITHUB_REPO_PUBLIC_KEY_ID']
-			}
-
-		response = put(f'{baseUrl}/GRAPH_API_TOKEN_READONLY', headers=headers, data=dumps(data), auth=auth)
-		response.raise_for_status()
-		print('Uploaded key to Github')
+		UploadSecret(token_)
 	return token_
 
 def EscapeForBash(token_):
-	charactersToEscape = '{}\"[]: *!+/~^()'
+	charactersToEscape = '{}"[]: *!+/~^()'
 	for character in charactersToEscape:
 		token_ = token_.replace(character, '\\' + character)
 	return token_
