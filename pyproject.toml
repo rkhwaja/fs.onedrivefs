@@ -18,6 +18,7 @@ python = ">=3.6"
 fs = ">=2.0.6"
 requests = "^2.20"
 requests-oauthlib = "^1.0"
+pynacl = "^1.4.0"
 
 [tool.poetry.dev-dependencies]
 pyperclip = "^1.7"
@@ -53,7 +54,8 @@ disable = [
 	"logging-format-interpolation",
 	"logging-fstring-interpolation",
 	"missing-docstring",
-	"relative-beyond-top-level"
+	"relative-beyond-top-level",
+	"too-many-locals"
 ]
 
 [build-system]
