@@ -176,7 +176,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 
 		# sometimes it take a few seconds for the server to process EXIF data
 		# until it's processed, the "photo" section should be missing
-		for _ in range(3):
+		for _ in range(6):
 			info_ = self.fs.getinfo("canon-ixus.jpg")
 
 			self.assertTrue(info_.get("photo", "camera_make") in [None, "Canon"])
@@ -193,7 +193,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 				break
 			sleep(5)
 		else:
-			self.fail("EXIF metadata not processed in 10s")
+			self.fail("EXIF metadata not processed in 20s")
 
 	def test_photo_metadata2(self):
 		with self.fs.open("DSCN0010.jpg", "wb") as target:
