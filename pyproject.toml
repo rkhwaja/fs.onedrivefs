@@ -3,7 +3,7 @@ name = "fs.onedrivefs"
 packages = [
     { include = "fs"}
 ]
-version = "0.4.0"
+version = "0.3.0"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 authors = ["Rehan Khwaja <rehan@khwaja.name>"]
 license = "MIT"
