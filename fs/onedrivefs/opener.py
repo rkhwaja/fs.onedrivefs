@@ -1,4 +1,4 @@
-__all__ = ["OneDriveFSOpener"]
+__all__ = ['OneDriveFSOpener']
 
 from fs.opener import Opener
 
@@ -8,7 +8,7 @@ def _SaveToken(_):
 	pass
 
 class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
-	protocols = ["onedrive"]
+	protocols = ['onedrive']
 
 	@staticmethod
 	def open_fs(fs_url, parse_result, writeable, create, cwd): # pylint: disable=unused-argument
@@ -16,14 +16,14 @@ class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
 
 		# this is missing various fields that hopefully aren't necessary
 		token = {
-			"token_type": "Bearer",
-			"access_token": parse_result.params.get("access_token"),
-			"refresh_token": parse_result.params.get("refresh_token")
+			'token_type': 'Bearer',
+			'access_token': parse_result.params.get('access_token'),
+			'refresh_token': parse_result.params.get('refresh_token')
 		}
 
 		fs = OneDriveFS(
-			clientId=parse_result.params["client_id"],
-			clientSecret=parse_result.params.get("client_secret"),
+			clientId=parse_result.params['client_id'],
+			clientSecret=parse_result.params.get('client_secret'),
 			token=token,
 			SaveToken=_SaveToken)
 
