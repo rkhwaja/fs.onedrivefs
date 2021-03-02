@@ -3,7 +3,7 @@ name = "fs.onedrivefs"
 packages = [
     { include = "fs"}
 ]
-version = "0.3.0"
+version = "0.4.1"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 authors = ["Rehan Khwaja <rehan@khwaja.name>"]
 license = "MIT"
@@ -27,7 +27,6 @@ python = ">=3.6"
 fs = ">=2.0.6"
 requests = "^2.20"
 requests-oauthlib = "^1.0"
-pynacl = "^1.4.0"
 
 [tool.poetry.dev-dependencies]
 pyperclip = "^1.7"
@@ -38,6 +37,7 @@ pytest-localserver = "^0.5.0"
 pyngrok = "^1.4"
 click = "^7.0"
 pytest-cov = ">=2.9.0"
+pynacl = "^1.4.0"
 
 [tool.poetry.plugins] # Optional super table
 
