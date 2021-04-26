@@ -2,11 +2,12 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from hashlib import sha1
 from json import dump, load, loads
 from logging import info, warning
-from os import environ
+from os import environ, remove
 from time import sleep
 from unittest import TestCase
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -81,8 +82,9 @@ def CredentialsStorage():
 		return TokenStorageReadOnly(environ['GRAPH_API_TOKEN_READONLY'])
 	return TokenStorageFile(environ['GRAPH_API_TOKEN_PATH'])
 
+storage = CredentialsStorage() # keep at module level so that it can save and load credentials after refresh
+
 def FullFS():
-	storage = CredentialsStorage()
 	return OneDriveFS(environ['GRAPH_API_CLIENT_ID'], environ['GRAPH_API_CLIENT_SECRET'], storage.Load(), storage.Save)
 
 def test_list_root():
@@ -236,3 +238,22 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		hash_.update(data)
 
 		self.assertEqual(hash_.hexdigest().upper(), self.fs.getinfo('DSCN0010.jpg').get('hashes', 'SHA1'))
+
+	def test_download_as_format(self):
+		with self.fs.open('a.md', 'w') as f:
+			f.write('test')
+
+		with ExitStack() as stack:
+			stack.callback(remove, 'output.html')
+			with open('output.html', 'wb') as f:
+				self.fs.download_as_format('a.md', f, 'html')
+			with open('output.html', 'rb') as g:
+				data = g.read()
+				assert data.startswith(b'<p>'), data
+
+		with ExitStack() as stack:
+			stack.callback(remove, 'output.pdf')
+			with open('output.pdf', 'wb') as f:
+				self.fs.download_as_format('a.md', f, 'pdf')
+			with open('output.pdf', 'rb') as f:
+				assert f.read().startswith(b'%PDF-')

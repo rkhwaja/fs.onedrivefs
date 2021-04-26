@@ -49,7 +49,7 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	tokenStorage = TokenStorageFile(storagePath)
 
 	environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = 'some value'
-	token_ = session.fetch_token(tokenUrl, client_secret=clientSecret, authorization_response=redirectResponse)
+	token_ = session.fetch_token(tokenUrl, client_secret=clientSecret, authorization_response=redirectResponse, include_client_id=True)
 	tokenStorage.Save(token_)
 	if 'GITHUB_API_PERSONAL_TOKEN' in environ:
 		auth = HTTPBasicAuth(environ['GITHUB_USERNAME'], environ['GITHUB_API_PERSONAL_TOKEN'])

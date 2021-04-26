@@ -3,7 +3,7 @@ name = "fs.onedrivefs"
 packages = [
     { include = "fs"}
 ]
-version = "0.4.1"
+version = "0.5.0"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 authors = ["Rehan Khwaja <rehan@khwaja.name>"]
 license = "MIT"
@@ -25,19 +25,19 @@ python = ">=3.6"
 # Need 2.0.5 for opendir factory parameter
 # Need 2.0.6 because in 2.0.5, opener didn't work
 fs = ">=2.0.6"
-requests = "^2.20"
-requests-oauthlib = "^1.0"
+requests = ">=2.20"
+requests-oauthlib = ">=1.2.0"
 
 [tool.poetry.dev-dependencies]
-pyperclip = "^1.7"
+pyperclip = ">=1.7"
 pytest = ">=3.10"
 pylint = ">=2.5.3"
-pylint-quotes = "^0.2.1"
-pytest-localserver = "^0.5.0"
-pyngrok = "^1.4"
-click = "^7.0"
+pylint-quotes = ">=0.2.1"
+pytest-localserver = ">=0.5.0"
+pyngrok = "^1"
+click = ">=7.0"
 pytest-cov = ">=2.9.0"
-pynacl = "^1.4.0"
+pynacl = ">=1.4.0"
 
 [tool.poetry.plugins] # Optional super table
 

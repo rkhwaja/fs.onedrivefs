@@ -116,6 +116,10 @@ class _UploadOnClose(BytesIO):
 	def closed(self):
 		return self._closed
 
+	@property
+	def mode(self):
+		return self.parsedMode.to_platform_bin()
+
 	def _ResumableUpload(self, uploadSessionUrl):
 		uploadInfo = self.session.post(uploadSessionUrl)
 		uploadInfo.raise_for_status()
@@ -161,6 +165,10 @@ class _UploadOnClose(BytesIO):
 		self._closed = True
 
 class SubOneDriveFS(SubFS):
+	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
+		fs, pathDelegate = self.delegate_path(path)
+		return fs.download_as_format(pathDelegate, output_file, format)
+
 	def create_subscription(self, notification_url, expiration_date_time, client_state):
 		return self.delegate_fs().create_subscription(notification_url, expiration_date_time, client_state)
 
@@ -194,6 +202,16 @@ class OneDriveFS(FS):
 
 	def __repr__(self):
 		return f'<{self.__class__.__name__}>'
+
+	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
+		path = _CheckPath(path)
+		response = self.session.get(_PathUrl(path, f'/content?format={format}'))
+		assert response.status_code != 206, 'Partial content response'
+		if response.status_code == 404:
+			raise ResourceNotFound(path)
+		response.raise_for_status()
+
+		output_file.write(response.content)
 
 	def create_subscription(self, notification_url, expiration_date_time, client_state):
 		with self._lock:
