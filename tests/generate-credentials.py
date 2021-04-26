@@ -2,15 +2,18 @@
 
 from base64 import b64encode
 from json import dump, dumps, load
-from logging import basicConfig, DEBUG
+from logging import basicConfig, DEBUG, info
 from os import environ
 from sys import stdout
 
+from msal import ConfidentialClientApplication
 from nacl import encoding, public
 from pyperclip import copy
 from requests import put
 from requests.auth import HTTPBasicAuth
 from requests_oauthlib import OAuth2Session
+
+SCOPE = ['offline_access', 'Files.ReadWrite']
 
 class TokenStorageFile:
 	def __init__(self, path):
@@ -35,9 +38,21 @@ def EncryptForGithubSecret(publicKey: str, secretValue: str) -> str:
 	return b64encode(encrypted).decode('utf-8')
 
 def Authorize(clientId, clientSecret, redirectUri, storagePath):
+	app = ConfidentialClientApplication(clientId,
+		authority='https://login.microsoftonline.com/common',
+		client_credential=clientSecret)
+	
+	result = None
+	result = app.acquire_token_silent(SCOPE, account=None)
+	if not result:
+		info("No suitable token exists in cache. Let's get a new one from AAD.")
+		result = app.acquire_token_for_client(scopes=SCOPE)
+	assert 'access_token' in result
+
+def AuthorizeOld(clientId, clientSecret, redirectUri, storagePath):
 	authorizationBaseUrl = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize'
 	tokenUrl = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token'
-	session = OAuth2Session(client_id=clientId, redirect_uri=redirectUri, scope=['offline_access', 'Files.ReadWrite'])
+	session = OAuth2Session(client_id=clientId, redirect_uri=redirectUri, scope=SCOPE)
 	authorizationUrl, _ = session.authorization_url(authorizationBaseUrl)
 	print(f'Go to the following URL and authorize the app: {authorizationUrl}')
 
@@ -66,12 +81,6 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 		response = put(f'{baseUrl}/GRAPH_API_TOKEN_READONLY', headers=headers, data=dumps(data), auth=auth)
 		response.raise_for_status()
 		print('Uploaded key to Github')
-	return token_
-
-def EscapeForBash(token_):
-	charactersToEscape = '{}\"[]: *!+/~^()'
-	for character in charactersToEscape:
-		token_ = token_.replace(character, '\\' + character)
 	return token_
 
 if __name__ == '__main__':
