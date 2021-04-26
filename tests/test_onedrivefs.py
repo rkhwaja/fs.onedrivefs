@@ -82,8 +82,9 @@ def CredentialsStorage():
 		return TokenStorageReadOnly(environ['GRAPH_API_TOKEN_READONLY'])
 	return TokenStorageFile(environ['GRAPH_API_TOKEN_PATH'])
 
+storage = CredentialsStorage() # keep at module level so that it can save and load credentials after refresh
+
 def FullFS():
-	storage = CredentialsStorage()
 	return OneDriveFS(environ['GRAPH_API_CLIENT_ID'], environ['GRAPH_API_CLIENT_SECRET'], storage.Load(), storage.Save)
 
 def test_list_root():
