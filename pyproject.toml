@@ -24,6 +24,7 @@ dependencies = [
     "fs>=2.4.13,<3",
     "requests>=2.20",
     "requests-oauthlib>=1.2.0",
+    "msal>=1.11.0",
 ]
 
 [project.urls]
