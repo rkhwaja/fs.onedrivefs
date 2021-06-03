@@ -15,3 +15,5 @@ onedriveFS = OneDriveFS(
 
 # onedriveFS is now a standard pyfilesystem2 file system
 ```
+
+Register your app [here](https://docs.microsoft.com/en-us/graph/auth-register-app-v2) to get a client ID and secret
