@@ -25,7 +25,12 @@ class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
 			clientId=parse_result.params['client_id'],
 			clientSecret=parse_result.params.get('client_secret'),
 			token=token,
-			SaveToken=_SaveToken)
+			SaveToken=_SaveToken,
+			driveId=parse_result.params.get('drive_id'),
+			userId=parse_result.params.get('user_id'),
+			groupId=parse_result.params.get('group_id'),
+			siteId=parse_result.params.get('site_id'),
+		)
 
 		if directory:
 			return fs.opendir(directory)
