@@ -16,8 +16,6 @@ from requests import get # pylint: disable=wrong-import-order
 from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
 _SERVICE_ROOT = 'https://graph.microsoft.com/v1.0'
-_RESOURCE_ROOT = 'me/drive'
-_DRIVE_ROOT = f'{_SERVICE_ROOT}/{_RESOURCE_ROOT}'
 _INVALID_PATH_CHARS = ':\0\\'
 _log = getLogger('fs.onedrivefs')
 
@@ -28,17 +26,6 @@ def _CheckPath(path):
 	if path.startswith('/') is False:
 		path = '/' + path
 	return path
-
-def _ItemUrl(itemId, extra):
-	return f'{_DRIVE_ROOT}/items/{itemId}{extra}'
-
-def _PathUrl(path, extra):
-	# the path must start with '/'
-	if path in ['/', '']: # special handling for the root directory
-		return f'{_DRIVE_ROOT}/root{extra}'
-	if extra != '':
-		extra = ':' + extra
-	return f'{_DRIVE_ROOT}/root:{path}{extra}'
 
 def _ParseDateTime(dt):
 	try:
@@ -68,7 +55,7 @@ class _UploadOnClose(BytesIO):
 		self.parsedMode = mode
 		initialData = None
 		if (self.parsedMode.appending or self.parsedMode.reading) and not self.parsedMode.truncate:
-			response = self.session.get(_PathUrl(path, '/content'))
+			response = self.session.get_path(path, '/content')
 			assert response.status_code != 206, 'Partial content response'
 			if response.status_code == 404:
 				if not self.parsedMode.appending:
@@ -120,8 +107,8 @@ class _UploadOnClose(BytesIO):
 	def mode(self):
 		return self.parsedMode.to_platform_bin()
 
-	def _ResumableUpload(self, uploadSessionUrl):
-		uploadInfo = self.session.post(uploadSessionUrl)
+	def _ResumableUpload(self, itemId, filename):
+		uploadInfo = self.session.post_item(itemId, f':/{filename}:/createUploadSession')
 		uploadInfo.raise_for_status()
 		uploadUrl = uploadInfo.json()['uploadUrl']
 		size = len(self.getvalue())
@@ -140,28 +127,28 @@ class _UploadOnClose(BytesIO):
 
 	def close(self):
 		if self.parsedMode.writing:
-			response = self.session.get(_PathUrl(dirname(self.path), ''))
+			response = self.session.get_path(dirname(self.path))
 			response.raise_for_status()
 			parentId = response.json()['id']
 			filename = basename(self.path)
 			if self.itemId is None:
 				# we have to create a new file
 				if len(self.getvalue()) < 4e6:
-					response = self.session.put(_ItemUrl(parentId, f':/{filename}:/content'), data=self.getvalue())
+					response = self.session.put_item(parentId, f':/{filename}:/content', data=self.getvalue())
 					response.raise_for_status()
 				else:
-					self._ResumableUpload(_ItemUrl(parentId, f':/{filename}:/createUploadSession'))
+					self._ResumableUpload(parentId, filename)
 			else:
 				# upload a new version
 				if len(self.getvalue()) < 4e6:
-					response = self.session.put(_ItemUrl(self.itemId, '/content'), data=self.getvalue())
+					response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 					# workaround for possible OneDrive bug
 					if response.status_code == 409:
 						_log.warning(f'Retrying upload due to {response}')
-						response = self.session.put(_ItemUrl(self.itemId, '/content'), data=self.getvalue())
+						response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 					response.raise_for_status()
 				else:
-					self._ResumableUpload(_ItemUrl(parentId, f':/{filename}:/createUploadSession'))
+					self._ResumableUpload(parentId, filename)
 		self._closed = True
 
 class SubOneDriveFS(SubFS):
@@ -178,17 +165,75 @@ class SubOneDriveFS(SubFS):
 	def update_subscription(self, id_, expiration_date_time):
 		return self.delegate_fs().update_subscription(id_, expiration_date_time)
 
+class OneDriveSession(OAuth2Session):
+	def __init__(self, *args, drive_root, **kwargs):
+		self._drive_root = drive_root
+		super().__init__(*args, **kwargs)
+
+	def path_url(self, path, extra):
+		# the path must start with '/'
+		if path in ['/', '']: # special handling for the root directory
+			return f'{self._drive_root}/root{extra}'
+		if extra != '':
+			extra = ':' + extra
+		return f'{self._drive_root}/root:{path}{extra}'
+
+	def item_url(self, itemId, extra):
+		return f'{self._drive_root}/items/{itemId}{extra}'
+
+	def get_path(self, path, extra='', **kwargs):
+		return self.get(self.path_url(path, extra), **kwargs)
+
+	def post_path(self, path, extra='', **kwargs):
+		return self.post(self.path_url(path, extra), **kwargs)
+
+	def delete_path(self, path, extra='', **kwargs):
+		return self.delete(self.path_url(path, extra), **kwargs)
+
+	def get_item(self, path, extra='', **kwargs):
+		return self.get(self.item_url(path, extra), **kwargs)
+
+	def patch_item(self, path, extra='', **kwargs):
+		return self.patch(self.item_url(path, extra), **kwargs)
+
+	def post_item(self, path, extra='', **kwargs):
+		return self.post(self.item_url(path, extra), **kwargs)
+
+	def put_item(self, path, extra='', **kwargs):
+		return self.put(self.item_url(path, extra), **kwargs)
+
+	def delete_item(self, path, extra='', **kwargs):
+		return self.delete(self.item_url(path, extra), **kwargs)
+
 class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
 
-	def __init__(self, clientId, clientSecret, token, SaveToken):
+	def __init__(self, clientId, clientSecret, token, SaveToken, driveId=None, userId=None, groupId=None, siteId=None):
 		super().__init__()
-		self.session = OAuth2Session(
+
+		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
+			raise ValueError("Only one of driveId, userId, groupId, or siteId can be specified at a time")
+		if driveId:
+			self._resource_root = f'drives/{driveId}'        # a specific drive ID
+		elif userId:
+			self._resource_root = f'users/{userId}/drive'    # a specific user's drive
+		elif groupId:
+			self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
+		elif siteId:
+			self._resource_root = f'sites/{siteId}'          # default document library of a SharePoint site
+		else:
+			self._resource_root = 'me/drive'                 # default - the logged in user's drive
+
+		self._drive_root = f'{_SERVICE_ROOT}/{self._resource_root}'
+
+		self.session = OneDriveSession(
 			client_id=clientId,
 			token=token,
 			auto_refresh_kwargs={'client_id': clientId, 'client_secret': clientSecret},
 			auto_refresh_url='https://login.microsoftonline.com/consumers/oauth2/v2.0/token', # common, consumers or organizations
-			token_updater=SaveToken)
+			token_updater=SaveToken,
+			drive_root=self._drive_root
+		)
 
 		_meta = self._meta = {
 			'case_insensitive': True,
@@ -205,7 +250,7 @@ class OneDriveFS(FS):
 
 	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
 		path = _CheckPath(path)
-		response = self.session.get(_PathUrl(path, f'/content?format={format}'))
+		response = self.session.get_path(path, f'/content?format={format}')
 		assert response.status_code != 206, 'Partial content response'
 		if response.status_code == 404:
 			raise ResourceNotFound(path)
@@ -218,7 +263,7 @@ class OneDriveFS(FS):
 			payload = {
 				'changeType': 'updated', # OneDrive only supports updated
 				'notificationUrl': notification_url,
-				'resource': f'/{_RESOURCE_ROOT}/root',
+				'resource': f'/{self._resource_root}/root',
 				'expirationDateTime': _FormatDateTime(expiration_date_time),
 				'clientState': client_state
 			}
@@ -311,7 +356,7 @@ class OneDriveFS(FS):
 	def getinfo(self, path, namespaces=None):
 		path = _CheckPath(path)
 		with self._lock:
-			response = self.session.get(_PathUrl(path, ''))
+			response = self.session.get_path(path)
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			response.raise_for_status()
@@ -320,7 +365,7 @@ class OneDriveFS(FS):
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
 		path = _CheckPath(path)
 		with self._lock:
-			response = self.session.get(_PathUrl(path, ''))
+			response = self.session.get_path(path)
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			existingItem = response.json()
@@ -360,7 +405,7 @@ class OneDriveFS(FS):
 					else:
 						# ignore namespaces that we don't recognize
 						pass
-			response = self.session.patch(_ItemUrl(existingItem['id'], ''), json=updatedData)
+			response = self.session.patch_item(existingItem['id'], json=updatedData)
 			response.raise_for_status()
 
 	def listdir(self, path):
@@ -374,17 +419,17 @@ class OneDriveFS(FS):
 			parentDir = dirname(path)
 			# parentDir here is expected to have a leading slash
 			assert parentDir[0] == '/'
-			response = self.session.get(_PathUrl(parentDir, ''))
+			response = self.session.get_path(parentDir)
 			if response.status_code == 404:
 				raise ResourceNotFound(parentDir)
 			response.raise_for_status()
 
 			if recreate is False:
-				response = self.session.get(_PathUrl(path, ''))
+				response = self.session.get_path(path)
 				if response.status_code != 404:
 					raise DirectoryExists(path)
 
-			response = self.session.post(_PathUrl(parentDir, '/children'),
+			response = self.session.post_path(parentDir, '/children',
 				json={'name': basename(path), 'folder': {}})
 			# TODO - will need to deal with these errors locally but don't know what they are yet
 			response.raise_for_status()
@@ -407,13 +452,13 @@ class OneDriveFS(FS):
 			if parsedMode.writing:
 				# make sure that the parent directory exists
 				parentDir = dirname(path)
-				response = self.session.get(_PathUrl(parentDir, ''))
+				response = self.session.get_path(parentDir)
 				if response.status_code == 404:
 					raise ResourceNotFound(parentDir)
 				response.raise_for_status()
 			itemId = None
 			if exists:
-				response = self.session.get(_PathUrl(path, ''))
+				response = self.session.get_path(path)
 				response.raise_for_status()
 				itemId = response.json()['id']
 			return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
@@ -421,48 +466,48 @@ class OneDriveFS(FS):
 	def remove(self, path):
 		path = _CheckPath(path)
 		with self._lock:
-			response = self.session.get(_PathUrl(path, ''))
+			response = self.session.get_path(path)
 			if response.status_code == 404:
 				raise ResourceNotFound(path)
 			response.raise_for_status()
 			itemData = response.json()
 			if 'folder' in itemData:
 				raise FileExpected(path=path)
-			response = self.session.delete(_PathUrl(path, ''))
+			response = self.session.delete_path(path)
 			response.raise_for_status()
 
 	def removedir(self, path):
 		path = _CheckPath(path)
 		with self._lock:
 			# need to get the item id for this path
-			response = self.session.get(_PathUrl(path, ''))
+			response = self.session.get_path(path)
 			if response.status_code == 404:
 				raise ResourceNotFound(path)
 			itemData = response.json()
 			if 'folder' not in itemData:
 				raise DirectoryExpected(path)
 
-			response = self.session.get(_PathUrl(path, '/children'))
+			response = self.session.get_path(path, '/children')
 			response.raise_for_status()
 			childrenData = response.json()
 			if len(childrenData['value']) > 0:
 				raise DirectoryNotEmpty(path)
 
 			itemId = itemData['id'] # let JSON parsing exceptions propagate for now
-			response = self.session.delete(_ItemUrl(itemId, ''))
+			response = self.session.delete_item(itemId)
 			assert response.status_code == 204, itemId # this is according to the spec
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
 		path = _CheckPath(path)
 		with self._lock:
-			response = self.session.get(_PathUrl(path, '')) # assumes path is the full path, starting with "/"
+			response = self.session.get_path(path) # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			if 'folder' not in response.json():
 				_log.debug(f'{response.json()}')
 				raise DirectoryExpected(path=path)
-			response = self.session.get(_PathUrl(path, '/children')) # assumes path is the full path, starting with "/"
+			response = self.session.get_path(path, '/children') # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			parsedResult = response.json()
@@ -477,7 +522,7 @@ class OneDriveFS(FS):
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
-			driveItemResponse = self.session.get(_PathUrl(src_path, ''))
+			driveItemResponse = self.session.get_path(src_path)
 			if driveItemResponse.status_code == 404:
 				raise ResourceNotFound(src_path)
 			driveItemResponse.raise_for_status()
@@ -494,26 +539,26 @@ class OneDriveFS(FS):
 
 			parentDir = dirname(dst_path)
 			if parentDir != dirname(src_path):
-				parentDirItem = self.session.get(_PathUrl(parentDir, ''))
+				parentDirItem = self.session.get_path(parentDir)
 				if parentDirItem.status_code == 404:
 					raise ResourceNotFound(parentDir)
 				parentDirItem.raise_for_status()
 				itemUpdate['parentReference'] = {'id': parentDirItem.json()['id']}
 
 			itemId = driveItem['id']
-			response = self.session.patch(_ItemUrl(itemId, ''), json=itemUpdate)
+			response = self.session.patch_item(itemId, json=itemUpdate)
 			if response.status_code == 409 and overwrite is True:
 				# delete the existing version and then try again
-				response = self.session.delete(_PathUrl(dst_path, ''))
+				response = self.session.delete(dst_path)
 				response.raise_for_status()
 
 				# try again
-				response = self.session.patch(_ItemUrl(itemId, ''), json=itemUpdate)
+				response = self.session.patch_item(itemId, json=itemUpdate)
 				response.raise_for_status()
 				return
 			if response.status_code == 409 and overwrite is False:
 				_log.debug("Retrying move in case it's an erroneous error (see issue #7)")
-				response = self.session.patch(_ItemUrl(itemId, ''), json=itemUpdate)
+				response = self.session.patch_item(itemId, json=itemUpdate)
 				response.raise_for_status()
 				return
 			response.raise_for_status()
@@ -525,7 +570,7 @@ class OneDriveFS(FS):
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
 
-			driveItemResponse = self.session.get(_PathUrl(src_path, ''))
+			driveItemResponse = self.session.get_path(src_path)
 			if driveItemResponse.status_code == 404:
 				raise ResourceNotFound(src_path)
 			driveItemResponse.raise_for_status()
@@ -537,14 +582,14 @@ class OneDriveFS(FS):
 			newParentDir = dirname(dst_path)
 			newFilename = basename(dst_path)
 
-			parentDirResponse = self.session.get(_PathUrl(newParentDir, ''))
+			parentDirResponse = self.session.get_path(newParentDir)
 			if parentDirResponse.status_code == 404:
 				raise ResourceNotFound(src_path)
 			parentDirResponse.raise_for_status()
 			parentDirItem = parentDirResponse.json()
 
 			# This just asynchronously starts the copy
-			response = self.session.post(_ItemUrl(driveItem['id'], '/copy'), json={
+			response = self.session.post_item(driveItem['id'], '/copy', json={
 				'parentReference': {'driveId': parentDirItem['parentReference']['driveId'], 'id': parentDirItem['id']},
 				'name': newFilename
 			})
