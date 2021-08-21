@@ -208,11 +208,11 @@ class OneDriveSession(OAuth2Session):
 class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
 
-	def __init__(self, clientId, clientSecret, token, SaveToken, driveId=None, userId=None, groupId=None, siteId=None):
+	def __init__(self, clientId, clientSecret, token, SaveToken, driveId=None, userId=None, groupId=None, siteId=None): # pylint: disable=too-many-arguments
 		super().__init__()
 
 		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
-			raise ValueError("Only one of driveId, userId, groupId, or siteId can be specified at a time")
+			raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
 		if driveId:
 			self._resource_root = f'drives/{driveId}'        # a specific drive ID
 		elif userId:
