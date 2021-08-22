@@ -549,7 +549,7 @@ class OneDriveFS(FS):
 			response = self.session.patch_item(itemId, json=itemUpdate)
 			if response.status_code == 409 and overwrite is True:
 				# delete the existing version and then try again
-				response = self.session.delete(dst_path)
+				response = self.session.delete_path(dst_path)
 				response.raise_for_status()
 
 				# try again
