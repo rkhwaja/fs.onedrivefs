@@ -120,14 +120,19 @@ class TestOneDriveFS(FSTestCases, TestCase):
 	def destroy_fs(self, _):
 		self.fullFS.removetree(self.testSubdir)
 
+	@mark.skipif('NGROK_AUTH_TOKEN' not in environ, reason='Missing NGROK_AUTH_TOKEN environment variable')
 	@mark.usefixtures('testserver')
 	def test_subscriptions(self):
 		port = urlparse(self.server.url).port # pylint: disable=no-member
 		info(f'Port: {port}')
 		info(self.server.url) # pylint: disable=no-member
-		with open('ngrok.yml', 'w') as f:
-			f.write(f"authtoken: {environ['NGROK_AUTH_TOKEN']}")
-		publicUrl = connect(proto='http', port=port, config_path='ngrok.yml').replace('http', 'https')
+		# with open('ngrok.yml', 'w') as f:
+		# 	f.write(f"authtoken: {environ['NGROK_AUTH_TOKEN']}")
+		# https is not supported as the proto but both http and https endpoints are forwarded
+		from pyngrok.conf import PyngrokConfig
+		tunnel = connect(proto='http', port=port, pyngrok_config=PyngrokConfig(auth_token=environ['NGROK_AUTH_TOKEN']))
+		info(f'tunnel started: {tunnel}')
+		publicUrl = tunnel.public_url.replace('http', 'https')
 		info(f'publicUrl: {publicUrl}')
 		expirationDateTime = datetime.now(timezone.utc) + timedelta(minutes=5)
 		id_ = self.fs.create_subscription(publicUrl, expirationDateTime, 'client_state')
