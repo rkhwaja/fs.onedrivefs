@@ -6,7 +6,8 @@ from logging import getLogger
 
 from fs.base import FS
 from fs.enums import ResourceType
-from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, InvalidCharsInPath, ResourceNotFound
+from fs.errors import (DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists,
+                       FileExpected, InvalidCharsInPath, ResourceNotFound)
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
@@ -44,7 +45,7 @@ def _UpdateDict(dict_, sourceKey, targetKey, processFn=None):
 def _HandleError(response):
 	# https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/errors
 	if response.ok is False:
-		_log.error(f'Response text: {response.text}')
+		_log.error('Response text: %s', response.text)
 	response.raise_for_status()
 
 class _UploadOnClose(BytesIO):
@@ -118,10 +119,11 @@ class _UploadOnClose(BytesIO):
 			length = min(320 * 1024, size - bytesSent)
 			dataToSend = self.getvalue()[bytesSent:bytesSent + length]
 			assert len(dataToSend) == length
-			response = self.session.put(uploadUrl, data=dataToSend, headers={'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'})
+			headers = {'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'}
+			response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			if response.status_code == 409:
-				_log.warning(f'Retrying upload due to {response}')
-				response = self.session.put(uploadUrl, data=dataToSend, headers={'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'})
+				_log.warning('Retrying upload due to %s', response)
+				response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			response.raise_for_status()
 			bytesSent += length
 
@@ -144,7 +146,7 @@ class _UploadOnClose(BytesIO):
 					response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 					# workaround for possible OneDrive bug
 					if response.status_code == 409:
-						_log.warning(f'Retrying upload due to {response}')
+						_log.warning('Retrying upload due to %s', response)
 						response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 					response.raise_for_status()
 				else:
@@ -278,7 +280,7 @@ class OneDriveFS(FS):
 			assert subscription['resource'] == payload['resource']
 			assert 'expirationDateTime' in subscription
 			assert subscription['clientState'] == payload['clientState']
-			_log.debug(f'Subscription created successfully: {subscription}')
+			_log.debug('Subscription created successfully: %s', subscription)
 			return subscription['id']
 
 	def delete_subscription(self, id_):
@@ -340,7 +342,7 @@ class OneDriveFS(FS):
 		if 'file' in item:
 			if 'hashes' in item['file']:
 				rawInfo['hashes'] = {}
-				# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes?view=odsp-graph-online
+				# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes
 				# CRC32 appears in the spec but not in the implementation
 				rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'crc32Hash', 'CRC32'))
 				# Standard SHA1
@@ -365,6 +367,9 @@ class OneDriveFS(FS):
 			return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
+		def to_datetime(value):
+			return epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
+
 		path = _CheckPath(path)
 		with self._lock:
 			response = self.session.get_path(path)
@@ -390,14 +395,14 @@ class OneDriveFS(FS):
 							# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
 							if 'fileSystemInfo' not in updatedData:
 								updatedData['fileSystemInfo'] = {}
-							updatedData['fileSystemInfo']['createdDateTime'] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
+							updatedData['fileSystemInfo']['createdDateTime'] = to_datetime(value)
 						elif name == 'metadata_changed':
 							pass # not supported by OneDrive
 						elif name == 'modified':
 							# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
 							if 'fileSystemInfo' not in updatedData:
 								updatedData['fileSystemInfo'] = {}
-							updatedData['fileSystemInfo']['lastModifiedDateTime'] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
+							updatedData['fileSystemInfo']['lastModifiedDateTime'] = to_datetime(value)
 						elif name == 'size':
 							assert False, "Can't change item size"
 						elif name == 'type':
@@ -507,7 +512,7 @@ class OneDriveFS(FS):
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			if 'folder' not in response.json():
-				_log.debug(f'{response.json()}')
+				_log.debug('%s', response.json())
 				raise DirectoryExpected(path=path)
 			response = self.session.get_path(path, '/children') # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
@@ -600,11 +605,11 @@ class OneDriveFS(FS):
 			monitorUri = response.headers['Location']
 			while True:
 				# monitor uris don't require authentication
-				# (https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/long-running-actions?view=odsp-graph-online)
+				# (https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/long-running-actions)
 				jobStatusResponse = get(monitorUri)
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()
 				if jobStatus['operation'] != 'itemCopy' or jobStatus['status'] not in ['inProgress', 'completed', 'notStarted']:
-					_log.warning(f'Unexpected status: {jobStatus}')
+					_log.warning('Unexpected status: %s', jobStatus)
 				if jobStatus['status'] == 'completed':
 					break

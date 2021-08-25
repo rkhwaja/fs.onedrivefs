@@ -76,5 +76,10 @@ def EscapeForBash(token_):
 
 if __name__ == '__main__':
 	basicConfig(stream=stdout, level=DEBUG, format='{levelname[0]}|{module}|{lineno}|{message}', style='{')
-	token = Authorize(environ['GRAPH_API_CLIENT_ID'], environ['GRAPH_API_CLIENT_SECRET'], environ['GRAPH_API_REDIRECT_URI'], environ['GRAPH_API_TOKEN_PATH'])
+	token = Authorize(
+		environ['GRAPH_API_CLIENT_ID'],
+		environ['GRAPH_API_CLIENT_SECRET'],
+		environ['GRAPH_API_REDIRECT_URI'],
+		environ['GRAPH_API_TOKEN_PATH']
+	)
 	print(token)
