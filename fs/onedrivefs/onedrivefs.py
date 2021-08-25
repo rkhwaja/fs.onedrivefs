@@ -213,6 +213,8 @@ class OneDriveFS(FS):
 
 		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
 			raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
+		# Documentation for the MS Graph File API here:
+		# https://docs.microsoft.com/en-us/graph/api/resources/onedrive
 		if driveId:
 			self._resource_root = f'drives/{driveId}'        # a specific drive ID
 		elif userId:
@@ -220,7 +222,7 @@ class OneDriveFS(FS):
 		elif groupId:
 			self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
 		elif siteId:
-			self._resource_root = f'sites/{siteId}'          # default document library of a SharePoint site
+			self._resource_root = f'sites/{siteId}/drive'    # default document library of a SharePoint site
 		else:
 			self._resource_root = 'me/drive'                 # default - the logged in user's drive
 
