@@ -7,7 +7,7 @@ from logging import getLogger
 from fs.base import FS
 from fs.enums import ResourceType
 from fs.errors import (DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists,
-                       FileExpected, InvalidCharsInPath, ResourceNotFound)
+                       FileExpected, ResourceNotFound)
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
@@ -17,16 +17,7 @@ from requests import get # pylint: disable=wrong-import-order
 from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
 _SERVICE_ROOT = 'https://graph.microsoft.com/v1.0'
-_INVALID_PATH_CHARS = ':\0\\'
 _log = getLogger('fs.onedrivefs')
-
-def _CheckPath(path):
-	for char in _INVALID_PATH_CHARS:
-		if char in path:
-			raise InvalidCharsInPath(path)
-	if path.startswith('/') is False:
-		path = '/' + path
-	return path
 
 def _ParseDateTime(dt):
 	try:
@@ -241,7 +232,7 @@ class OneDriveFS(FS):
 
 		_meta = self._meta = {
 			'case_insensitive': True,
-			'invalid_path_chars': _INVALID_PATH_CHARS,
+			'invalid_path_chars': ':\0\\',
 			'max_path_length': None, # don't know what the limit is
 			'max_sys_path_length': None, # there's no syspath
 			'network': True,
@@ -253,7 +244,7 @@ class OneDriveFS(FS):
 		return f'<{self.__class__.__name__}>'
 
 	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		response = self.session.get_path(path, f'/content?format={format}')
 		assert response.status_code != 206, 'Partial content response'
 		if response.status_code == 404:
@@ -358,7 +349,7 @@ class OneDriveFS(FS):
 		return Info(rawInfo)
 
 	def getinfo(self, path, namespaces=None):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
 			if response.status_code == 404:
@@ -370,7 +361,7 @@ class OneDriveFS(FS):
 		def to_datetime(value):
 			return epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
 
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
 			if response.status_code == 404:
@@ -416,12 +407,12 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def listdir(self, path):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			return [x.name for x in self.scandir(path)]
 
 	def makedir(self, path, permissions=None, recreate=False):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			parentDir = dirname(path)
 			# parentDir here is expected to have a leading slash
@@ -444,7 +435,7 @@ class OneDriveFS(FS):
 			return SubFS(self, path)
 
 	def openbin(self, path, mode='r', buffering=-1, **options):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			if 't' in mode:
 				raise ValueError('Text mode is not allowed in openbin')
@@ -471,7 +462,7 @@ class OneDriveFS(FS):
 			return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
 
 	def remove(self, path):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
 			if response.status_code == 404:
@@ -484,7 +475,7 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def removedir(self, path):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			# need to get the item id for this path
 			response = self.session.get_path(path)
@@ -506,7 +497,7 @@ class OneDriveFS(FS):
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path) # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
@@ -524,8 +515,8 @@ class OneDriveFS(FS):
 			return (self._itemInfo(x) for x in parsedResult['value'])
 
 	def move(self, src_path, dst_path, overwrite=False):
-		src_path = _CheckPath(src_path)
-		dst_path = _CheckPath(dst_path)
+		src_path = self.validatepath(src_path)
+		dst_path = self.validatepath(dst_path)
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
@@ -571,8 +562,8 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def copy(self, src_path, dst_path, overwrite=False):
-		src_path = _CheckPath(src_path)
-		dst_path = _CheckPath(dst_path)
+		src_path = self.validatepath(src_path)
+		dst_path = self.validatepath(dst_path)
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
