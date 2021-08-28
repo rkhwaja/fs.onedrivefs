@@ -16,7 +16,6 @@ from fs.time import datetime_to_epoch, epoch_to_datetime
 from requests import get # pylint: disable=wrong-import-order
 from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
-_SERVICE_ROOT = 'https://graph.microsoft.com/v1.0'
 _log = getLogger('fs.onedrivefs')
 
 def _ParseDateTime(dt):
@@ -200,26 +199,12 @@ class OneDriveSession(OAuth2Session):
 
 class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
+	_service_root = 'https://graph.microsoft.com/v1.0'
 
-	def __init__(self, clientId, clientSecret, token, SaveToken, driveId=None, userId=None, groupId=None, siteId=None): # pylint: disable=too-many-arguments
+	def __init__(self, clientId, clientSecret, token, SaveToken, **kwargs):
 		super().__init__()
 
-		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
-			raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
-		# Documentation for the MS Graph File API here:
-		# https://docs.microsoft.com/en-us/graph/api/resources/onedrive
-		if driveId:
-			self._resource_root = f'drives/{driveId}'        # a specific drive ID
-		elif userId:
-			self._resource_root = f'users/{userId}/drive'    # a specific user's drive
-		elif groupId:
-			self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
-		elif siteId:
-			self._resource_root = f'sites/{siteId}/drive'    # default document library of a SharePoint site
-		else:
-			self._resource_root = 'me/drive'                 # default - the logged in user's drive
-
-		self._drive_root = f'{_SERVICE_ROOT}/{self._resource_root}'
+		self.set_drive(**kwargs)
 
 		self.session = OneDriveSession(
 			client_id=clientId,
@@ -243,6 +228,27 @@ class OneDriveFS(FS):
 	def __repr__(self):
 		return f'<{self.__class__.__name__}>'
 
+	def set_drive(self, driveId=None, userId=None, groupId=None, siteId=None):
+		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
+			raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
+
+		# Documentation for the MS Graph File API here:
+		# https://docs.microsoft.com/en-us/graph/api/resources/onedrive
+		if driveId:
+			self._resource_root = f'drives/{driveId}'        # a specific drive ID
+		elif userId:
+			self._resource_root = f'users/{userId}/drive'    # a specific user's drive
+		elif groupId:
+			self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
+		elif siteId:
+			self._resource_root = f'sites/{siteId}/drive'    # default document library of a SharePoint site
+		else:
+			self._resource_root = 'me/drive'                 # default - the logged in user's drive
+
+		_log.debug('Drive set to %s', self._resource_root)
+
+		self._drive_root = f'{self._service_root}/{self._resource_root}'
+
 	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
 		path = self.validatepath(path)
 		response = self.session.get_path(path, f'/content?format={format}')
@@ -262,7 +268,7 @@ class OneDriveFS(FS):
 				'expirationDateTime': _FormatDateTime(expiration_date_time),
 				'clientState': client_state
 			}
-			response = self.session.post(f'{_SERVICE_ROOT}/subscriptions', json=payload)
+			response = self.session.post(f'{self._service_root}/subscriptions', json=payload)
 			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 201, 'Expected 201 Created response'
 			subscription = response.json()
@@ -276,13 +282,13 @@ class OneDriveFS(FS):
 
 	def delete_subscription(self, id_):
 		with self._lock:
-			response = self.session.delete(f'{_SERVICE_ROOT}/subscriptions/{id_}')
+			response = self.session.delete(f'{self._service_root}/subscriptions/{id_}')
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 204, 'Expected 204 No content'
 
 	def update_subscription(self, id_, expiration_date_time):
 		with self._lock:
-			response = self.session.patch(f'{_SERVICE_ROOT}/subscriptions/{id_}', json={'expirationDateTime': _FormatDateTime(expiration_date_time)})
+			response = self.session.patch(f'{self._service_root}/subscriptions/{id_}', json={'expirationDateTime': _FormatDateTime(expiration_date_time)})
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 200, 'Expected 200 OK'
 			subscription = response.json()
