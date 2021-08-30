@@ -60,7 +60,8 @@ disable = [
 	"fixme",
 	"invalid-name",
 	"missing-docstring",
-	"too-many-locals"
+	"too-many-locals",
+	"logging-fstring-interpolation"
 ]
 
 [build-system]

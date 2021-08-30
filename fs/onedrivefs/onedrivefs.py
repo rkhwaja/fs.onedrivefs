@@ -35,7 +35,7 @@ def _UpdateDict(dict_, sourceKey, targetKey, processFn=None):
 def _HandleError(response):
 	# https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/errors
 	if response.ok is False:
-		_log.error('Response text: %s', response.text)
+		_log.error(f'Response text: {response.text}')
 	response.raise_for_status()
 
 class _UploadOnClose(BytesIO):
@@ -112,7 +112,7 @@ class _UploadOnClose(BytesIO):
 			headers = {'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'}
 			response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			if response.status_code == 409:
-				_log.warning('Retrying upload due to %s', response)
+				_log.warning(f'Retrying upload due to {response}')
 				response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			response.raise_for_status()
 			bytesSent += length
@@ -136,7 +136,7 @@ class _UploadOnClose(BytesIO):
 					response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 					# workaround for possible OneDrive bug
 					if response.status_code == 409:
-						_log.warning('Retrying upload due to %s', response)
+						_log.warning(f'Retrying upload due to {response}')
 						response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 					response.raise_for_status()
 				else:
@@ -245,7 +245,7 @@ class OneDriveFS(FS):
 		else:
 			self._resource_root = 'me/drive'                 # default - the logged in user's drive
 
-		_log.debug('Drive set to %s', self._resource_root)
+		_log.debug(f'Drive set to {self._resource_root}')
 
 		self._drive_root = f'{self._service_root}/{self._resource_root}'
 
@@ -277,7 +277,7 @@ class OneDriveFS(FS):
 			assert subscription['resource'] == payload['resource']
 			assert 'expirationDateTime' in subscription
 			assert subscription['clientState'] == payload['clientState']
-			_log.debug('Subscription created successfully: %s', subscription)
+			_log.debug(f'Subscription created successfully: {subscription}')
 			return subscription['id']
 
 	def delete_subscription(self, id_):
@@ -509,7 +509,7 @@ class OneDriveFS(FS):
 			if response.status_code == 404:
 				raise ResourceNotFound(path=path)
 			if 'folder' not in response.json():
-				_log.debug('%s', response.json())
+				_log.debug(f'{response.json()}')
 				raise DirectoryExpected(path=path)
 			nextLink = self.session.path_url(path, '/children') # assumes path is the full path, starting with "/"
 			while nextLink:
@@ -611,6 +611,6 @@ class OneDriveFS(FS):
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()
 				if jobStatus['operation'] != 'itemCopy' or jobStatus['status'] not in ['inProgress', 'completed', 'notStarted']:
-					_log.warning('Unexpected status: %s', jobStatus)
+					_log.warning(f'Unexpected status: {jobStatus}')
 				if jobStatus['status'] == 'completed':
 					break
