@@ -201,16 +201,18 @@ class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
 	_service_root = 'https://graph.microsoft.com/v1.0'
 
-	def __init__(self, clientId, clientSecret, token, SaveToken, **kwargs):
+	def __init__(self, clientId, clientSecret, token, SaveToken, tenant='consumers', **kwargs):  # pylint: disable=too-many-arguments
 		super().__init__()
 
 		self.set_drive(**kwargs)
-
+		auto_refresh_kwargs = {'client_id': clientId}
+		if clientSecret is not None:
+			auto_refresh_kwargs['client_secret'] = clientSecret
 		self.session = OneDriveSession(
 			client_id=clientId,
 			token=token,
-			auto_refresh_kwargs={'client_id': clientId, 'client_secret': clientSecret},
-			auto_refresh_url='https://login.microsoftonline.com/consumers/oauth2/v2.0/token', # common, consumers or organizations
+			auto_refresh_kwargs=auto_refresh_kwargs,
+			auto_refresh_url=f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token',
 			token_updater=SaveToken,
 			drive_root=self._drive_root
 		)
