@@ -247,10 +247,3 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			with open('output.html', 'rb') as g:
 				data = g.read()
 				assert data.startswith(b'<p>'), data
-
-		with ExitStack() as stack:
-			stack.callback(remove, 'output.pdf')
-			with open('output.pdf', 'wb') as f:
-				self.fs.download_as_format('a.md', f, 'pdf')
-			with open('output.pdf', 'rb') as f:
-				assert f.read().startswith(b'%PDF-')
