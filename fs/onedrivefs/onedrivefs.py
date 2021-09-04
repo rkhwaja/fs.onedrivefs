@@ -513,6 +513,7 @@ class OneDriveFS(FS):
 			if 'folder' not in response.json():
 				_log.debug(f'{response.json()}')
 				raise DirectoryExpected(path=path)
+			result = []
 			nextLink = self.session.path_url(path, '/children') # assumes path is the full path, starting with "/"
 			while nextLink:
 				response = self.session.get(nextLink)
@@ -520,11 +521,14 @@ class OneDriveFS(FS):
 					raise ResourceNotFound(path=path)
 				parsedResult = response.json()
 				assert '@odata.context' in parsedResult
-				if page is not None:
-					return (self._itemInfo(x) for x in parsedResult['value'][page[0]:page[1]])
 				for item in parsedResult['value']:
-					yield self._itemInfo(item)
+					result.append(self._itemInfo(item))
+				if page is not None and page[1] <= len(result):
+					return result[page[0]: page[1]]
 				nextLink = parsedResult.get('@odata.nextLink')
+			if page is not None:
+				return result[page[0]: page[1]]
+			return result
 
 	def move(self, src_path, dst_path, overwrite=False):
 		src_path = self.validatepath(src_path)
