@@ -6,7 +6,8 @@ from logging import getLogger
 
 from fs.base import FS
 from fs.enums import ResourceType
-from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, InvalidCharsInPath, ResourceNotFound
+from fs.errors import (DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists,
+                       FileExpected, ResourceNotFound)
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
@@ -15,17 +16,7 @@ from fs.time import datetime_to_epoch, epoch_to_datetime
 from requests import get # pylint: disable=wrong-import-order
 from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
-_SERVICE_ROOT = 'https://graph.microsoft.com/v1.0'
-_INVALID_PATH_CHARS = ':\0\\'
 _log = getLogger('fs.onedrivefs')
-
-def _CheckPath(path):
-	for char in _INVALID_PATH_CHARS:
-		if char in path:
-			raise InvalidCharsInPath(path)
-	if path.startswith('/') is False:
-		path = '/' + path
-	return path
 
 def _ParseDateTime(dt):
 	try:
@@ -118,10 +109,11 @@ class _UploadOnClose(BytesIO):
 			length = min(320 * 1024, size - bytesSent)
 			dataToSend = self.getvalue()[bytesSent:bytesSent + length]
 			assert len(dataToSend) == length
-			response = self.session.put(uploadUrl, data=dataToSend, headers={'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'})
+			headers = {'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'}
+			response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			if response.status_code == 409:
 				_log.warning(f'Retrying upload due to {response}')
-				response = self.session.put(uploadUrl, data=dataToSend, headers={'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'})
+				response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			response.raise_for_status()
 			bytesSent += length
 
@@ -207,37 +199,27 @@ class OneDriveSession(OAuth2Session):
 
 class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
+	_service_root = 'https://graph.microsoft.com/v1.0'
 
-	def __init__(self, clientId, clientSecret, token, SaveToken, driveId=None, userId=None, groupId=None, siteId=None): # pylint: disable=too-many-arguments
+	def __init__(self, clientId, clientSecret, token, SaveToken, tenant='consumers', **kwargs):  # pylint: disable=too-many-arguments
 		super().__init__()
 
-		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
-			raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
-		if driveId:
-			self._resource_root = f'drives/{driveId}'        # a specific drive ID
-		elif userId:
-			self._resource_root = f'users/{userId}/drive'    # a specific user's drive
-		elif groupId:
-			self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
-		elif siteId:
-			self._resource_root = f'sites/{siteId}'          # default document library of a SharePoint site
-		else:
-			self._resource_root = 'me/drive'                 # default - the logged in user's drive
-
-		self._drive_root = f'{_SERVICE_ROOT}/{self._resource_root}'
-
+		self.set_drive(**kwargs)
+		auto_refresh_kwargs = {'client_id': clientId}
+		if clientSecret is not None:
+			auto_refresh_kwargs['client_secret'] = clientSecret
 		self.session = OneDriveSession(
 			client_id=clientId,
 			token=token,
-			auto_refresh_kwargs={'client_id': clientId, 'client_secret': clientSecret},
-			auto_refresh_url='https://login.microsoftonline.com/consumers/oauth2/v2.0/token', # common, consumers or organizations
+			auto_refresh_kwargs=auto_refresh_kwargs,
+			auto_refresh_url=f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token',
 			token_updater=SaveToken,
 			drive_root=self._drive_root
 		)
 
 		_meta = self._meta = {
 			'case_insensitive': True,
-			'invalid_path_chars': _INVALID_PATH_CHARS,
+			'invalid_path_chars': ':\0\\',
 			'max_path_length': None, # don't know what the limit is
 			'max_sys_path_length': None, # there's no syspath
 			'network': True,
@@ -248,8 +230,29 @@ class OneDriveFS(FS):
 	def __repr__(self):
 		return f'<{self.__class__.__name__}>'
 
+	def set_drive(self, driveId=None, userId=None, groupId=None, siteId=None):
+		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
+			raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
+
+		# Documentation for the MS Graph File API here:
+		# https://docs.microsoft.com/en-us/graph/api/resources/onedrive
+		if driveId:
+			self._resource_root = f'drives/{driveId}'        # a specific drive ID
+		elif userId:
+			self._resource_root = f'users/{userId}/drive'    # a specific user's drive
+		elif groupId:
+			self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
+		elif siteId:
+			self._resource_root = f'sites/{siteId}/drive'    # default document library of a SharePoint site
+		else:
+			self._resource_root = 'me/drive'                 # default - the logged in user's drive
+
+		_log.debug(f'Drive set to {self._resource_root}')
+
+		self._drive_root = f'{self._service_root}/{self._resource_root}'
+
 	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		response = self.session.get_path(path, f'/content?format={format}')
 		assert response.status_code != 206, 'Partial content response'
 		if response.status_code == 404:
@@ -267,7 +270,7 @@ class OneDriveFS(FS):
 				'expirationDateTime': _FormatDateTime(expiration_date_time),
 				'clientState': client_state
 			}
-			response = self.session.post(f'{_SERVICE_ROOT}/subscriptions', json=payload)
+			response = self.session.post(f'{self._service_root}/subscriptions', json=payload)
 			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 201, 'Expected 201 Created response'
 			subscription = response.json()
@@ -281,13 +284,13 @@ class OneDriveFS(FS):
 
 	def delete_subscription(self, id_):
 		with self._lock:
-			response = self.session.delete(f'{_SERVICE_ROOT}/subscriptions/{id_}')
+			response = self.session.delete(f'{self._service_root}/subscriptions/{id_}')
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 204, 'Expected 204 No content'
 
 	def update_subscription(self, id_, expiration_date_time):
 		with self._lock:
-			response = self.session.patch(f'{_SERVICE_ROOT}/subscriptions/{id_}', json={'expirationDateTime': _FormatDateTime(expiration_date_time)})
+			response = self.session.patch(f'{self._service_root}/subscriptions/{id_}', json={'expirationDateTime': _FormatDateTime(expiration_date_time)})
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 200, 'Expected 200 OK'
 			subscription = response.json()
@@ -338,7 +341,7 @@ class OneDriveFS(FS):
 		if 'file' in item:
 			if 'hashes' in item['file']:
 				rawInfo['hashes'] = {}
-				# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes?view=odsp-graph-online
+				# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes
 				# CRC32 appears in the spec but not in the implementation
 				rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'crc32Hash', 'CRC32'))
 				# Standard SHA1
@@ -354,7 +357,7 @@ class OneDriveFS(FS):
 		return Info(rawInfo)
 
 	def getinfo(self, path, namespaces=None):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
 			if response.status_code == 404:
@@ -363,7 +366,10 @@ class OneDriveFS(FS):
 			return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
-		path = _CheckPath(path)
+		def to_datetime(value):
+			return epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
+
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
 			if response.status_code == 404:
@@ -388,14 +394,14 @@ class OneDriveFS(FS):
 							# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
 							if 'fileSystemInfo' not in updatedData:
 								updatedData['fileSystemInfo'] = {}
-							updatedData['fileSystemInfo']['createdDateTime'] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
+							updatedData['fileSystemInfo']['createdDateTime'] = to_datetime(value)
 						elif name == 'metadata_changed':
 							pass # not supported by OneDrive
 						elif name == 'modified':
 							# incoming datetimes should be utc timestamps, OneDrive expects naive UTC datetimes
 							if 'fileSystemInfo' not in updatedData:
 								updatedData['fileSystemInfo'] = {}
-							updatedData['fileSystemInfo']['lastModifiedDateTime'] = epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
+							updatedData['fileSystemInfo']['lastModifiedDateTime'] = to_datetime(value)
 						elif name == 'size':
 							assert False, "Can't change item size"
 						elif name == 'type':
@@ -409,12 +415,12 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def listdir(self, path):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			return [x.name for x in self.scandir(path)]
 
 	def makedir(self, path, permissions=None, recreate=False):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			parentDir = dirname(path)
 			# parentDir here is expected to have a leading slash
@@ -437,7 +443,7 @@ class OneDriveFS(FS):
 			return SubFS(self, path)
 
 	def openbin(self, path, mode='r', buffering=-1, **options):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			if 't' in mode:
 				raise ValueError('Text mode is not allowed in openbin')
@@ -464,7 +470,7 @@ class OneDriveFS(FS):
 			return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
 
 	def remove(self, path):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
 			if response.status_code == 404:
@@ -477,7 +483,7 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def removedir(self, path):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			# need to get the item id for this path
 			response = self.session.get_path(path)
@@ -499,7 +505,7 @@ class OneDriveFS(FS):
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
-		path = _CheckPath(path)
+		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path) # assumes path is the full path, starting with "/"
 			if response.status_code == 404:
@@ -507,18 +513,22 @@ class OneDriveFS(FS):
 			if 'folder' not in response.json():
 				_log.debug(f'{response.json()}')
 				raise DirectoryExpected(path=path)
-			response = self.session.get_path(path, '/children') # assumes path is the full path, starting with "/"
-			if response.status_code == 404:
-				raise ResourceNotFound(path=path)
-			parsedResult = response.json()
-			assert '@odata.context' in parsedResult
-			if page is not None:
-				return (self._itemInfo(x) for x in parsedResult['value'][page[0]:page[1]])
-			return (self._itemInfo(x) for x in parsedResult['value'])
+			nextLink = self.session.path_url(path, '/children') # assumes path is the full path, starting with "/"
+			while nextLink:
+				response = self.session.get(nextLink)
+				if response.status_code == 404:
+					raise ResourceNotFound(path=path)
+				parsedResult = response.json()
+				assert '@odata.context' in parsedResult
+				if page is not None:
+					return (self._itemInfo(x) for x in parsedResult['value'][page[0]:page[1]])
+				for item in parsedResult['value']:
+					yield self._itemInfo(item)
+				nextLink = parsedResult.get('@odata.nextLink')
 
 	def move(self, src_path, dst_path, overwrite=False):
-		src_path = _CheckPath(src_path)
-		dst_path = _CheckPath(dst_path)
+		src_path = self.validatepath(src_path)
+		dst_path = self.validatepath(dst_path)
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
@@ -564,8 +574,8 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def copy(self, src_path, dst_path, overwrite=False):
-		src_path = _CheckPath(src_path)
-		dst_path = _CheckPath(dst_path)
+		src_path = self.validatepath(src_path)
+		dst_path = self.validatepath(dst_path)
 		with self._lock:
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
@@ -598,7 +608,7 @@ class OneDriveFS(FS):
 			monitorUri = response.headers['Location']
 			while True:
 				# monitor uris don't require authentication
-				# (https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/long-running-actions?view=odsp-graph-online)
+				# (https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/long-running-actions)
 				jobStatusResponse = get(monitorUri)
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()

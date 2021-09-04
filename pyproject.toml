@@ -59,12 +59,9 @@ disable = [
 	"duplicate-code",
 	"fixme",
 	"invalid-name",
-	"len-as-condition",
-	"logging-format-interpolation",
-	"logging-fstring-interpolation",
 	"missing-docstring",
-	"relative-beyond-top-level",
-	"too-many-locals"
+	"too-many-locals",
+	"logging-fstring-interpolation"
 ]
 
 [build-system]
