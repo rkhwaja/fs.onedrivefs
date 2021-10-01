@@ -92,7 +92,7 @@ def test_opener_format():
 	registry.install(OneDriveFSOpener())
 	client_id = environ['GRAPH_API_CLIENT_ID']
 	client_secret = environ['GRAPH_API_CLIENT_SECRET']
-	credentials = CredentialsStorage().Load()
+	credentials = storage.Load()
 	access_token = credentials['access_token']
 	refresh_token = credentials['refresh_token']
 
