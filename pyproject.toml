@@ -38,6 +38,7 @@ pyngrok = "^1"
 click = ">=7.0"
 pytest-cov = ">=2.9.0"
 pynacl = ">=1.4.0"
+pytest-rerunfailures = "^10"
 
 [tool.poetry.plugins] # Optional super table
 
