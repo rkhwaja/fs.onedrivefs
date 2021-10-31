@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 from io import BytesIO
 from logging import getLogger
+from urllib.parse import urlencode
 
 from fs.base import FS
 from fs.enums import ResourceType
@@ -144,9 +145,9 @@ class _UploadOnClose(BytesIO):
 		self._closed = True
 
 class SubOneDriveFS(SubFS):
-	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
+	def download_as_format(self, path, output_file, format, **options): # pylint: disable=redefined-builtin
 		fs, pathDelegate = self.delegate_path(path)
-		return fs.download_as_format(pathDelegate, output_file, format)
+		return fs.download_as_format(pathDelegate, output_file, format, **options)
 
 	def create_subscription(self, notification_url, expiration_date_time, client_state):
 		return self.delegate_fs().create_subscription(notification_url, expiration_date_time, client_state)
@@ -251,9 +252,11 @@ class OneDriveFS(FS):
 
 		self._drive_root = f'{self._service_root}/{self._resource_root}'
 
-	def download_as_format(self, path, output_file, format): # pylint: disable=redefined-builtin
+	def download_as_format(self, path, output_file, format, **options): # pylint: disable=redefined-builtin
 		path = self.validatepath(path)
-		response = self.session.get_path(path, f'/content?format={format}')
+		options['format'] = format
+		optionsString = urlencode(options)
+		response = self.session.get_path(path, f'/content?{optionsString}')
 		assert response.status_code != 206, 'Partial content response'
 		if response.status_code == 404:
 			raise ResourceNotFound(path)

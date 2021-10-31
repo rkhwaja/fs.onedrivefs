@@ -1,10 +1,10 @@
 # coding: utf-8
-from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from hashlib import sha1
+from io import BytesIO
 from json import dump, load, loads
 from logging import info, warning
-from os import environ, remove
+from os import environ
 from time import sleep
 from unittest import TestCase
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -240,10 +240,17 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		with self.fs.open('a.md', 'w') as f:
 			f.write('test')
 
-		with ExitStack() as stack:
-			stack.callback(remove, 'output.html')
-			with open('output.html', 'wb') as f:
-				self.fs.download_as_format('a.md', f, 'html')
-			with open('output.html', 'rb') as g:
-				data = g.read()
-				assert data.startswith(b'<p>'), data
+		byteStream = BytesIO()
+		self.fs.download_as_format('a.md', byteStream, 'html')
+		byteStream.seek(0)
+		data = byteStream.read()
+		assert data.startswith(b'<p>'), data
+
+		with open('tests/sample1.heic', 'rb') as f:
+			self.fs.upload('sample1.heic', f)
+
+		byteStream = BytesIO()
+		self.fs.download_as_format('sample1.heic', byteStream, 'jpg', width=100, height=100)
+		byteStream.seek(0)
+		data = byteStream.read()
+		assert data.startswith(b'\xFF\xD8\xFF'), data
