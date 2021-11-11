@@ -14,7 +14,7 @@ from fs.onedrivefs import OneDriveFS, OneDriveFSOpener
 from fs.opener import open_fs, registry
 from fs.subfs import SubFS
 from fs.test import FSTestCases
-from pyngrok.ngrok import connect # pylint: disable=wrong-import-order
+from pyngrok import conf, ngrok # pylint: disable=wrong-import-order
 from pytest import fixture, mark # pylint: disable=wrong-import-order
 from pytest_localserver.http import WSGIServer # pylint: disable=wrong-import-order
 
@@ -120,27 +120,26 @@ class TestOneDriveFS(FSTestCases, TestCase):
 	def destroy_fs(self, _):
 		self.fullFS.removetree(self.testSubdir)
 
+	@mark.skipif('NGROK_AUTH_TOKEN' not in environ, reason='Missing NGROK_AUTH_TOKEN environment variable')
 	@mark.usefixtures('testserver')
 	def test_subscriptions(self):
 		port = urlparse(self.server.url).port # pylint: disable=no-member
 		info(f'Port: {port}')
 		info(self.server.url) # pylint: disable=no-member
-		with open('ngrok.yml', 'w') as f:
-			f.write(f"authtoken: {environ['NGROK_AUTH_TOKEN']}")
-		publicUrl = connect(proto='http', port=port, config_path='ngrok.yml').replace('http', 'https')
-		info(f'publicUrl: {publicUrl}')
+		conf.get_default().auth_token = environ['NGROK_AUTH_TOKEN']
+		tunnel = ngrok.connect(port, bind_tls=True)
+		info(f'tunnel started: {tunnel}')
+		info(f'publicUrl: {tunnel.public_url}')
 		expirationDateTime = datetime.now(timezone.utc) + timedelta(minutes=5)
-		id_ = self.fs.create_subscription(publicUrl, expirationDateTime, 'client_state')
+		id_ = self.fs.create_subscription(tunnel.public_url, expirationDateTime, 'client_state')
 		info(f'subscription id: {id_}')
 		self.fs.touch('touched-file.txt')
 		info('Touched the file, waiting...')
-		# subscription = self.fs.update_subscription(subscription["id"], expirationDateTime + timedelta(hours=12))
 		# need to wait for some time for the notification to come through, but also process incoming http requests
 		for _ in range(10):
 			if self.server.app.notified is True: # pylint: disable=no-member
 				break
 			sleep(1)
-		# sleep(2)
 		info('Sleep done, deleting subscription')
 		self.fs.delete_subscription(id_)
 		info('subscription deleted')
