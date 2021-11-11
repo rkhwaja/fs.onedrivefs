@@ -12,8 +12,30 @@ on:
       - '*'
 
 jobs:
-  build:
 
+  secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      valid: ${{ steps.check.outputs.valid }}
+    steps:
+      - name: Check for access to secrets
+        id: check
+        env:
+          GRAPH_API_CLIENT_ID: ${{ secrets.GRAPH_API_CLIENT_ID }}
+          GRAPH_API_CLIENT_SECRET: ${{ secrets.GRAPH_API_CLIENT_SECRET }}
+          GRAPH_API_TOKEN_READONLY: ${{ secrets.GRAPH_API_TOKEN_READONLY }}
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: |
+          valid=0
+          if [ ! -z "$GRAPH_API_CLIENT_ID" ] && [ ! -z "$GRAPH_API_CLIENT_SECRET" ] && [ ! -z "$GRAPH_API_TOKEN_READONLY" ] && [ ! -z "$NGROK_AUTH_TOKEN" ]
+          then
+            echo "Secrets are available"
+            valid=1
+          else
+            echo "Secrets are not available"
+          fi
+
+  build:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false      
@@ -41,6 +63,7 @@ jobs:
         GRAPH_API_CLIENT_SECRET: ${{ secrets.GRAPH_API_CLIENT_SECRET }}
         GRAPH_API_TOKEN_READONLY: ${{ secrets.GRAPH_API_TOKEN_READONLY }}
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+      if: ${{needs.secrets.outputs.valid}} == 'true'
       run: |
         pytest --cov=fs --reruns 2 --only-rerun requests.exceptions.HTTPError
         coverage xml
