@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from datetime import datetime, timezone
 from io import BytesIO
 from logging import getLogger
@@ -7,8 +5,7 @@ from urllib.parse import urlencode
 
 from fs.base import FS
 from fs.enums import ResourceType
-from fs.errors import (DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists,
-                       FileExpected, ResourceNotFound)
+from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, ResourceNotFound
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
@@ -218,7 +215,7 @@ class OneDriveFS(FS):
 			drive_root=self._drive_root
 		)
 
-		_meta = self._meta = {
+		self._meta = {
 			'case_insensitive': True,
 			'invalid_path_chars': ':\0\\',
 			'max_path_length': None, # don't know what the limit is
@@ -232,41 +229,43 @@ class OneDriveFS(FS):
 		return f'<{self.__class__.__name__}>'
 
 	def set_drive(self, driveId=None, userId=None, groupId=None, siteId=None):
-		if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
-			raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
+		with self._lock:
+			if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
+				raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
 
-		# Documentation for the MS Graph File API here:
-		# https://docs.microsoft.com/en-us/graph/api/resources/onedrive
-		if driveId:
-			self._resource_root = f'drives/{driveId}'        # a specific drive ID
-		elif userId:
-			self._resource_root = f'users/{userId}/drive'    # a specific user's drive
-		elif groupId:
-			self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
-		elif siteId:
-			self._resource_root = f'sites/{siteId}/drive'    # default document library of a SharePoint site
-		else:
-			self._resource_root = 'me/drive'                 # default - the logged in user's drive
+			# Documentation for the MS Graph File API here:
+			# https://docs.microsoft.com/en-us/graph/api/resources/onedrive
+			if driveId:
+				self._resource_root = f'drives/{driveId}'        # a specific drive ID
+			elif userId:
+				self._resource_root = f'users/{userId}/drive'    # a specific user's drive
+			elif groupId:
+				self._resource_root = f'groups/{groupId}/drive'  # default document library of a specific group
+			elif siteId:
+				self._resource_root = f'sites/{siteId}/drive'    # default document library of a SharePoint site
+			else:
+				self._resource_root = 'me/drive'                 # default - the logged in user's drive
 
-		_log.debug(f'Drive set to {self._resource_root}')
+			_log.debug(f'Drive set to {self._resource_root}')
 
-		self._drive_root = f'{self._service_root}/{self._resource_root}'
+			self._drive_root = f'{self._service_root}/{self._resource_root}'
 
 	def download_as_format(self, path, output_file, format, **options): # pylint: disable=redefined-builtin
-		path = self.validatepath(path)
-		# validate per-format arguments
-		if format == 'jpg':
-			if 'width' not in options or 'height' not in options or not isinstance(options['width'], int) or not isinstance(options['height'], int):
-				raise ValueError('Format jpg requires integer width and height arguments')
-		options['format'] = format
-		optionsString = urlencode(options)
-		response = self.session.get_path(path, f'/content?{optionsString}')
-		assert response.status_code != 206, 'Partial content response'
-		if response.status_code == 404:
-			raise ResourceNotFound(path)
-		response.raise_for_status()
+		with self._lock:
+			path = self.validatepath(path)
+			# validate per-format arguments
+			if format == 'jpg':
+				if 'width' not in options or 'height' not in options or not isinstance(options['width'], int) or not isinstance(options['height'], int):
+					raise ValueError('Format jpg requires integer width and height arguments')
+			options['format'] = format
+			optionsString = urlencode(options)
+			response = self.session.get_path(path, f'/content?{optionsString}')
+			assert response.status_code != 206, 'Partial content response'
+			if response.status_code == 404:
+				raise ResourceNotFound(path)
+			response.raise_for_status()
 
-		output_file.write(response.content)
+			output_file.write(response.content)
 
 	def create_subscription(self, notification_url, expiration_date_time, client_state):
 		with self._lock:
