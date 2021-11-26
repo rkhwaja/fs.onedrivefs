@@ -42,7 +42,7 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 	environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = 'some value'
 	token_ = session.fetch_token(tokenUrl, client_secret=clientSecret, authorization_response=redirectResponse, include_client_id=True)
 	tokenStorage.Save(token_)
-	if 'GITHUB_API_PERSONAL_TOKEN' in environ:
+	if 'XGITHUB_API_PERSONAL_TOKEN' in environ:
 		UploadSecret(token_)
 	return token_
 
