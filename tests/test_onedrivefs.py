@@ -136,7 +136,7 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		self.fs.touch('touched-file.txt')
 		info('Touched the file, waiting...')
 		# need to wait for some time for the notification to come through, but also process incoming http requests
-		for _ in range(10):
+		for _ in range(20):
 			if self.server.app.notified is True: # pylint: disable=no-member
 				break
 			sleep(1)
