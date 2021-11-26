@@ -63,6 +63,9 @@ jobs:
         GRAPH_API_CLIENT_SECRET: ${{ secrets.GRAPH_API_CLIENT_SECRET }}
         GRAPH_API_TOKEN_READONLY: ${{ secrets.GRAPH_API_TOKEN_READONLY }}
         NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        XGITHUB_API_PERSONAL_TOKEN: ${{ secrets.XGITHUB_API_PERSONAL_TOKEN }}
+        XGITHUB_REPO_OWNER: ${{ secrets.XGITHUB_REPO_OWNER }}
+        XGITHUB_USERNAME: ${{ secrets.XGITHUB_USERNAME }}
       if: ${{needs.secrets.outputs.valid}} == 'true'
       run: |
         if python --version | grep -q 'Python 3.10' ; then
