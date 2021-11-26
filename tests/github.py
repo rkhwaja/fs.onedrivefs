@@ -3,7 +3,7 @@ from json import dumps
 from os import environ
 
 from nacl import encoding, public
-from requests import put
+from requests import get, put
 from requests.auth import HTTPBasicAuth
 
 def _EncryptForGithubSecret(publicKey, secretValue):
@@ -13,15 +13,17 @@ def _EncryptForGithubSecret(publicKey, secretValue):
 	return b64encode(encrypted).decode('utf-8')
 
 def UploadSecret(token):
+	# needs a PAT with permissions to public repositories
 	auth = HTTPBasicAuth(environ['XGITHUB_USERNAME'], environ['XGITHUB_API_PERSONAL_TOKEN'])
 	headers = {'Accept': 'application/vnd.github.v3+json'}
 
 	owner = environ['XGITHUB_REPO_OWNER']
 	baseUrl = f'https://api.github.com/repos/{owner}/fs.onedrivefs/actions/secrets'
+	publicKey = get(f'https://api.github.com/repos/{owner}/fs.onedrivefs/actions/secrets/public-key', headers=headers, auth=auth).json()
 
 	data = {
-		'encrypted_value': _EncryptForGithubSecret(environ['XGITHUB_REPO_PUBLIC_KEY'], dumps(token)),
-		'key_id': environ['XGITHUB_REPO_PUBLIC_KEY_ID']
+		'encrypted_value': _EncryptForGithubSecret(publicKey['key'], dumps(token)),
+		'key_id': publicKey['key_id']
 		}
 
 	response = put(f'{baseUrl}/GRAPH_API_TOKEN_READONLY', headers=headers, data=dumps(data), auth=auth)
