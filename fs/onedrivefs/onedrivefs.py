@@ -533,7 +533,7 @@ class OneDriveFS(FS):
 				return result[page[0]: page[1]]
 			return result
 
-	def move(self, src_path, dst_path, overwrite=False):
+	def move(self, src_path, dst_path, overwrite=False, preserve_time=False):
 		src_path = self.validatepath(src_path)
 		dst_path = self.validatepath(dst_path)
 		with self._lock:
@@ -580,7 +580,7 @@ class OneDriveFS(FS):
 				return
 			response.raise_for_status()
 
-	def copy(self, src_path, dst_path, overwrite=False):
+	def copy(self, src_path, dst_path, overwrite=False, preserve_time=False):
 		src_path = self.validatepath(src_path)
 		dst_path = self.validatepath(dst_path)
 		with self._lock:
