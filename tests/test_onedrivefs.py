@@ -15,7 +15,7 @@ from fs.opener import open_fs, registry
 from fs.subfs import SubFS
 from fs.test import FSTestCases
 from pyngrok import conf, ngrok # pylint: disable=wrong-import-order
-from pytest import fixture, mark # pylint: disable=wrong-import-order
+from pytest import fixture, mark, raises # pylint: disable=wrong-import-order
 from pytest_localserver.http import WSGIServer # pylint: disable=wrong-import-order
 
 from .github import UploadSecret
@@ -256,3 +256,12 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		byteStream.seek(0)
 		data = byteStream.read()
 		assert data.startswith(b'\xFF\xD8\xFF'), data
+
+		with raises(ValueError):
+			self.fs.download_as_format('sample1.heic', BytesIO(), 'jpg')
+
+		with raises(ValueError):
+			self.fs.download_as_format('sample1.heic', BytesIO(), 'jpg', width=42.2, height=42)
+
+		with raises(ValueError):
+			self.fs.download_as_format('sample1.heic', BytesIO(), 'jpg', height=42)
