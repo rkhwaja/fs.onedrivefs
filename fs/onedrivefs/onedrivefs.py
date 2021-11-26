@@ -254,6 +254,10 @@ class OneDriveFS(FS):
 
 	def download_as_format(self, path, output_file, format, **options): # pylint: disable=redefined-builtin
 		path = self.validatepath(path)
+		# validate per-format arguments
+		if format == 'jpg':
+			if 'width' not in options or 'height' not in options or not isinstance(options['width'], int) or not isinstance(options['height'], int):
+				raise ValueError('Format jpg requires integer width and height arguments')
 		options['format'] = format
 		optionsString = urlencode(options)
 		response = self.session.get_path(path, f'/content?{optionsString}')
