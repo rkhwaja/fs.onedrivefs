@@ -52,6 +52,7 @@ pytest-rerunfailures = "^10"
 
 [tool.pylint.master]
 load-plugins = "pylint_quotes"
+enable="useless-suppression"
 
 [tool.pylint.format]
 indent-string = "\t"

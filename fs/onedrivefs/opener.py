@@ -11,7 +11,7 @@ class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
 	protocols = ['onedrive']
 
 	@staticmethod
-	def open_fs(fs_url, parse_result, writeable, create, cwd): # pylint: disable=unused-argument
+	def open_fs(fs_url, parse_result, writeable, create, cwd):
 		directory = parse_result.resource
 
 		# this is missing various fields that hopefully aren't necessary
