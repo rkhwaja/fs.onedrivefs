@@ -128,17 +128,15 @@ class _UploadOnClose(BytesIO):
 					response.raise_for_status()
 				else:
 					self._ResumableUpload(parentId, filename)
-			else:
-				# upload a new version
-				if len(self.getvalue()) < 4e6:
+			elif len(self.getvalue()) < 4e6: # upload a new version
+				response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
+				# workaround for possible OneDrive bug
+				if response.status_code == 409:
+					_log.warning(f'Retrying upload due to {response}')
 					response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
-					# workaround for possible OneDrive bug
-					if response.status_code == 409:
-						_log.warning(f'Retrying upload due to {response}')
-						response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
-					response.raise_for_status()
-				else:
-					self._ResumableUpload(parentId, filename)
+				response.raise_for_status()
+			else:
+				self._ResumableUpload(parentId, filename)
 		self._closed = True
 
 class SubOneDriveFS(SubFS):
@@ -162,7 +160,7 @@ class OneDriveSession(OAuth2Session):
 
 	def path_url(self, path, extra):
 		# the path must start with '/'
-		if path in ['/', '']: # special handling for the root directory
+		if path in {'/', ''}: # special handling for the root directory
 			return f'{self._drive_root}/root{extra}'
 		if extra != '':
 			extra = ':' + extra
@@ -230,7 +228,7 @@ class OneDriveFS(FS):
 
 	def set_drive(self, driveId=None, userId=None, groupId=None, siteId=None):
 		with self._lock:
-			if sum(map(bool, (driveId, userId, groupId, siteId))) > 1:
+			if sum((bool(x) for x in (driveId, userId, groupId, siteId))) > 1:
 				raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
 
 			# Documentation for the MS Graph File API here:
