@@ -8,19 +8,19 @@ from sys import stdout
 from pyperclip import copy
 from requests_oauthlib import OAuth2Session
 
-from github import UploadSecret
+from .github import UploadSecret
 
 class TokenStorageFile:
 	def __init__(self, path):
 		self.path = path
 
 	def Save(self, token_):
-		with open(self.path, 'w') as f:
+		with open(self.path, 'w', encoding='utf-8') as f:
 			dump(token_, f)
 
 	def Load(self):
 		try:
-			with open(self.path, 'r') as f:
+			with open(self.path, 'r', encoding='utf-8') as f:
 				return load(f)
 		except FileNotFoundError:
 			return None

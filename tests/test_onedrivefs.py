@@ -38,12 +38,12 @@ class TokenStorageFile:
 		self.path = path
 
 	def Save(self, token):
-		with open(self.path, 'w') as f:
+		with open(self.path, 'w', encoding='utf-8') as f:
 			dump(token, f)
 
 	def Load(self):
 		try:
-			with open(self.path, 'r') as f:
+			with open(self.path, 'r', encoding='utf-8') as f:
 				return load(f)
 		except FileNotFoundError:
 			return None
@@ -180,16 +180,16 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		for _ in range(6):
 			info_ = self.fs.getinfo('canon-ixus.jpg')
 
-			self.assertTrue(info_.get('photo', 'camera_make') in [None, 'Canon'])
-			self.assertTrue(info_.get('photo', 'camera_model') in [None, 'Canon DIGITAL IXUS'])
-			self.assertTrue(info_.get('photo', 'exposure_denominator') in [None, 350])
-			self.assertTrue(info_.get('photo', 'exposure_numerator') in [None, 1])
-			self.assertTrue(info_.get('photo', 'focal_length') in [None, 10.8125])
-			self.assertTrue(info_.get('photo', 'f_number') in [None, 4.0])
-			self.assertTrue(info_.get('photo', 'taken_date_time') in [None, datetime(2001, 6, 9, 15, 17, 32)])
-			self.assertTrue(info_.get('photo', 'iso') in [None])
-			self.assertTrue(info_.get('image', 'width') in [None, 640])
-			self.assertTrue(info_.get('image', 'height') in [None, 480])
+			self.assertTrue(info_.get('photo', 'camera_make') in {None, 'Canon'})
+			self.assertTrue(info_.get('photo', 'camera_model') in {None, 'Canon DIGITAL IXUS'})
+			self.assertTrue(info_.get('photo', 'exposure_denominator') in {None, 350})
+			self.assertTrue(info_.get('photo', 'exposure_numerator') in {None, 1})
+			self.assertTrue(info_.get('photo', 'focal_length') in {None, 10.8125})
+			self.assertTrue(info_.get('photo', 'f_number') in {None, 4.0})
+			self.assertTrue(info_.get('photo', 'taken_date_time') in {None, datetime(2001, 6, 9, 15, 17, 32)})
+			self.assertTrue(info_.get('photo', 'iso') in {None})
+			self.assertTrue(info_.get('image', 'width') in {None, 640})
+			self.assertTrue(info_.get('image', 'height') in {None, 480})
 			if info_.get('photo', 'camera_make') is not None:
 				break
 			sleep(5)
@@ -208,18 +208,18 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		for iteration in range(iterations):
 			info_ = self.fs.getinfo('DSCN0010.jpg')
 
-			self.assertTrue(info_.get('photo', 'camera_make') in [None, 'NIKON'])
-			self.assertTrue(info_.get('photo', 'camera_model') in [None, 'COOLPIX P6000'])
-			self.assertTrue(info_.get('photo', 'exposure_denominator') in [None, 300.0])
-			self.assertTrue(info_.get('photo', 'exposure_numerator') in [None, 4.0])
-			self.assertTrue(info_.get('photo', 'focal_length') in [None, 24.0])
-			self.assertTrue(info_.get('photo', 'f_number') in [None, 5.9])
-			self.assertTrue(info_.get('photo', 'taken_date_time') in [None, datetime(2008, 10, 22, 16, 28, 39)])
-			self.assertTrue(info_.get('photo', 'iso') in [None, 64])
-			self.assertTrue(info_.get('image', 'width') in [None, 640])
-			self.assertTrue(info_.get('image', 'height') in [None, 480])
-			self.assertTrue(info_.get('location', 'latitude') in [None, 43.46744833333334])
-			self.assertTrue(info_.get('location', 'longitude') in [None, 11.885126666663888])
+			self.assertTrue(info_.get('photo', 'camera_make') in {None, 'NIKON'})
+			self.assertTrue(info_.get('photo', 'camera_model') in {None, 'COOLPIX P6000'})
+			self.assertTrue(info_.get('photo', 'exposure_denominator') in {None, 300.0})
+			self.assertTrue(info_.get('photo', 'exposure_numerator') in {None, 4.0})
+			self.assertTrue(info_.get('photo', 'focal_length') in {None, 24.0})
+			self.assertTrue(info_.get('photo', 'f_number') in {None, 5.9})
+			self.assertTrue(info_.get('photo', 'taken_date_time') in {None, datetime(2008, 10, 22, 16, 28, 39)})
+			self.assertTrue(info_.get('photo', 'iso') in {None, 64})
+			self.assertTrue(info_.get('image', 'width') in {None, 640})
+			self.assertTrue(info_.get('image', 'height') in {None, 480})
+			self.assertTrue(info_.get('location', 'latitude') in {None, 43.46744833333334})
+			self.assertTrue(info_.get('location', 'longitude') in {None, 11.885126666663888})
 			if info_.get('photo', 'camera_make') is not None:
 				break
 			warning(f'EXIF metadata not processed in {iteration * sleepTime}s')
