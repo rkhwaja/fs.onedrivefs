@@ -249,6 +249,7 @@ class OneDriveFS(FS):
 			self._drive_root = f'{self._service_root}/{self._resource_root}'
 
 	def download_as_format(self, path, output_file, format, **options): # pylint: disable=redefined-builtin
+		_log.info(f'download_as_format({path}, {output_file}, {format}, {options})')
 		with self._lock:
 			path = self.validatepath(path)
 			# validate per-format arguments
@@ -266,6 +267,7 @@ class OneDriveFS(FS):
 			output_file.write(response.content)
 
 	def create_subscription(self, notification_url, expiration_date_time, client_state):
+		_log.info(f'create_subscription({notification_url}, {expiration_date_time}, {client_state})')
 		with self._lock:
 			payload = {
 				'changeType': 'updated', # OneDrive only supports updated
@@ -287,12 +289,14 @@ class OneDriveFS(FS):
 			return subscription['id']
 
 	def delete_subscription(self, id_):
+		_log.info(f'delete_subscription({id_})')
 		with self._lock:
 			response = self.session.delete(f'{self._service_root}/subscriptions/{id_}')
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == 204, 'Expected 204 No content'
 
 	def update_subscription(self, id_, expiration_date_time):
+		_log.info(f'update_subscription({id_}, {expiration_date_time})')
 		with self._lock:
 			response = self.session.patch(f'{self._service_root}/subscriptions/{id_}', json={'expirationDateTime': _FormatDateTime(expiration_date_time)})
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
@@ -361,6 +365,7 @@ class OneDriveFS(FS):
 		return Info(rawInfo)
 
 	def getinfo(self, path, namespaces=None):
+		_log.info(f'getinfo({path}, {namespaces})')
 		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
@@ -370,6 +375,7 @@ class OneDriveFS(FS):
 			return self._itemInfo(response.json())
 
 	def setinfo(self, path, info): # pylint: disable=too-many-branches
+		_log.info(f'setinfo({path}, {info})')
 		def to_datetime(value):
 			return epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
 
@@ -419,11 +425,13 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def listdir(self, path):
+		_log.info(f'listdir({path})')
 		path = self.validatepath(path)
 		with self._lock:
 			return [x.name for x in self.scandir(path)]
 
 	def makedir(self, path, permissions=None, recreate=False):
+		_log.info(f'makedir({path}, {permissions}, {recreate})')
 		path = self.validatepath(path)
 		with self._lock:
 			parentDir = dirname(path)
@@ -447,6 +455,7 @@ class OneDriveFS(FS):
 			return SubFS(self, path)
 
 	def openbin(self, path, mode='r', buffering=-1, **options):
+		_log.info(f'openbin({path}, {mode}, {buffering}, {options})')
 		path = self.validatepath(path)
 		with self._lock:
 			if 't' in mode:
@@ -474,6 +483,7 @@ class OneDriveFS(FS):
 			return _UploadOnClose(session=self.session, path=path, itemId=itemId, mode=parsedMode)
 
 	def remove(self, path):
+		_log.info(f'remove({path})')
 		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
@@ -487,6 +497,7 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def removedir(self, path):
+		_log.info(f'removedir({path})')
 		path = self.validatepath(path)
 		with self._lock:
 			# need to get the item id for this path
@@ -509,6 +520,7 @@ class OneDriveFS(FS):
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
+		_log.info(f'scandir({path}, {namespaces}, {page})')
 		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path) # assumes path is the full path, starting with "/"
@@ -535,6 +547,7 @@ class OneDriveFS(FS):
 			return result
 
 	def move(self, src_path, dst_path, overwrite=False, preserve_time=False):
+		_log.info(f'move({src_path}, {dst_path}, {overwrite}, {preserve_time})')
 		src_path = self.validatepath(src_path)
 		dst_path = self.validatepath(dst_path)
 		with self._lock:
@@ -582,6 +595,7 @@ class OneDriveFS(FS):
 			response.raise_for_status()
 
 	def copy(self, src_path, dst_path, overwrite=False, preserve_time=False):
+		_log.info(f'copy({src_path}, {dst_path}, {overwrite}, {preserve_time})')
 		src_path = self.validatepath(src_path)
 		dst_path = self.validatepath(dst_path)
 		with self._lock:
