@@ -14,7 +14,7 @@ from fs.time import datetime_to_epoch, epoch_to_datetime
 from requests import get # pylint: disable=wrong-import-order
 from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
 
-_log = getLogger('fs.onedrivefs')
+_log = getLogger(__name__)
 
 def _ParseDateTime(dt):
 	try:
