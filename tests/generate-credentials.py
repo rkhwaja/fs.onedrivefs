@@ -8,7 +8,7 @@ from sys import stdout
 from pyperclip import copy
 from requests_oauthlib import OAuth2Session
 
-from .github import UploadSecret
+from github import UploadSecret # pylint: disable=import-error
 
 class TokenStorageFile:
 	def __init__(self, path):
