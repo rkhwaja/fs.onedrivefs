@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import Enum
 from io import BytesIO
 from logging import getLogger
 from urllib.parse import urlencode
@@ -17,6 +18,8 @@ from requests_oauthlib import OAuth2Session
 _log = getLogger(__name__)
 
 SIMPLE_UPLOAD_LIMIT = 4e6
+
+GrantType = Enum('GrantType', 'AuthorizationCode ClientCredentials Implicit Password Device')
 
 def _ParseDateTime(dt):
 	try:
@@ -199,15 +202,27 @@ class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
 	_service_root = 'https://graph.microsoft.com/v1.0'
 
-	def __init__(self, clientId, clientSecret, token, SaveToken, tenant='consumers', **kwargs):
+	def __init__(self, clientId, clientSecret, token, SaveToken, grantType=GrantType.AuthorizationCode, tenant='consumers', **kwargs):
 		super().__init__()
 
 		self.set_drive(**kwargs)
+		from oauthlib.oauth2 import BackendApplicationClient, LegacyApplicationClient, MobileApplicationClient, WebApplicationClient
+		if grantType == GrantType.AuthorizationCode:
+			client = WebApplicationClient(clientId, token=token)
+		elif grantType == GrantType.ClientCredentials:
+			client = BackendApplicationClient(clientId)
+		elif grantType == GrantType.Implicit:
+			client = MobileApplicationClient(clientId)
+		elif grantType == GrantType.Password:
+			client = LegacyApplicationClient(clientId)
+		else:
+			raise RuntimeError('Unknown grant type')
 		auto_refresh_kwargs = {'client_id': clientId}
 		if clientSecret is not None:
 			auto_refresh_kwargs['client_secret'] = clientSecret
 		self.session = OneDriveSession(
 			client_id=clientId,
+			client=client,
 			token=token,
 			auto_refresh_kwargs=auto_refresh_kwargs,
 			auto_refresh_url=f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token',
