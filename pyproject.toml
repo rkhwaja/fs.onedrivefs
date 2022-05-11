@@ -3,7 +3,7 @@ name = "fs.onedrivefs"
 packages = [
     { include = "fs"}
 ]
-version = "1.1.1"
+version = "1.1.2"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 authors = ["Rehan Khwaja <rehan@khwaja.name>"]
 license = "MIT"
@@ -17,7 +17,8 @@ classifiers = [
 	"Programming Language :: Python :: 3.7",
 	"Programming Language :: Python :: 3.8",
 	"Programming Language :: Python :: 3.9",
-	"Programming Language :: Python :: 3.10"
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11"
 ]
 
 [tool.poetry.dependencies]
@@ -36,7 +37,7 @@ poethepoet = ">=0.16.4"
 [tool.poetry.dev-dependencies]
 pyperclip = ">=1.7"
 pytest = ">=3.10"
-pylint = ">=2.11" # need at least this for all the extensions
+pylint = ">=2.13" # need at least this for all the extensions
 pylint-quotes = ">=0.2.1"
 pytest-localserver = ">=0.5.0"
 pyngrok = ">=5.0.6,<6"
@@ -58,7 +59,7 @@ lint = "pylint fs/onedrivefs/ tests/"
 
 [tool.poe.tasks.test]
 shell = """
-pytest --cov=fs --reruns 2 --only-rerun requests.exceptions.HTTPError
+pytest --cov=fs --reruns 2 --only-rerun requests.exceptions.HTTPError || exit 1
 coverage xml
 """
 
@@ -85,7 +86,6 @@ max-line-length = "200"
 string-quote = "single-avoid-escape"
 
 [tool.pylint.messages_control]
-# no-member to remove false positives with objects constructed via google's discovery protocol
 disable = [
 	"bad-continuation",
 	"consider-using-assignment-expr",
@@ -94,7 +94,8 @@ disable = [
 	"invalid-name",
 	"missing-docstring",
 	"too-many-locals",
-	"logging-fstring-interpolation"
+	"logging-fstring-interpolation",
+	"no-name-in-module" # currently has a bunch of false positives on python 3.11
 ]
 
 [build-system]
