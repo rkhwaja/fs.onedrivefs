@@ -1,6 +1,6 @@
 from base64 import b64encode
 from json import dumps
-from os import environ
+from os import environ # pylint: disable=no-name-in-module
 
 from nacl import encoding, public
 from requests import get, put

@@ -2,7 +2,7 @@
 
 from json import dump, load
 from logging import basicConfig, DEBUG
-from os import environ
+from os import environ # pylint: disable=no-name-in-module
 from sys import stdout
 
 from pyperclip import copy

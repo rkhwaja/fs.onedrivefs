@@ -1,10 +1,10 @@
 # coding: utf-8
 from datetime import datetime, timedelta, timezone
 from hashlib import sha1
-from io import BytesIO
+from io import BytesIO # pylint: disable=no-name-in-module
 from json import dump, load, loads
 from logging import info, warning
-from os import environ
+from os import environ # pylint: disable=no-name-in-module
 from time import sleep
 from unittest import TestCase
 from urllib.parse import parse_qs, urlencode, urlparse

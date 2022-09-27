@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from io import BytesIO
+from io import BytesIO # pylint: disable=no-name-in-module
 from logging import getLogger
 from urllib.parse import urlencode
 

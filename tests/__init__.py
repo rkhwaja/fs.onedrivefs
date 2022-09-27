@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from os.path import join, realpath
+from os.path import join, realpath # pylint: disable=no-name-in-module
 
 import fs
 
