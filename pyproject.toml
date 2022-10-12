@@ -14,7 +14,6 @@ classifiers = [
 	"License :: OSI Approved :: MIT License",
 	"Development Status :: 5 - Production/Stable",
 	"Intended Audience :: Developers",
-	"Programming Language :: Python :: 3.6",
 	"Programming Language :: Python :: 3.7",
 	"Programming Language :: Python :: 3.8",
 	"Programming Language :: Python :: 3.9",
@@ -22,7 +21,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.6,<4"
+python = ">=3.7,<4"
 # Need 2.0.5 for opendir factory parameter
 # Need 2.0.6 because in 2.0.5, opener didn't work
 # Need 2.4.13 for preserve_time flag
@@ -32,6 +31,7 @@ urllib3 = [
 	{ version = ">=1.26", python = ">=3.10,<4" }
 ]
 requests-oauthlib = ">=1.2.0"
+poethepoet = ">=0.16.4"
 
 [tool.poetry.dev-dependencies]
 pyperclip = ">=1.7"
@@ -52,6 +52,15 @@ pytest-rerunfailures = ">=10"
 
 [tool.poetry.plugins."fs.opener"]
 "onedrive" = "fs.onedrivefs.opener:OneDriveFSOpener"
+
+[tool.poe.tasks]
+lint = "pylint fs/onedrivefs/ tests/"
+
+[tool.poe.tasks.test]
+shell = """
+pytest --cov=fs --reruns 2 --only-rerun requests.exceptions.HTTPError
+coverage xml
+"""
 
 [tool.pylint.master]
 load-plugins = [
