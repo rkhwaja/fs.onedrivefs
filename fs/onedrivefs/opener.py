@@ -10,8 +10,7 @@ def _SaveToken(_):
 class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
 	protocols = ['onedrive']
 
-	@staticmethod
-	def open_fs(fs_url, parse_result, writeable, create, cwd):
+	def open_fs(self, fs_url, parse_result, writeable, create, cwd): # pylint: disable=too-many-arguments
 		directory = parse_result.resource
 
 		# this is missing various fields that hopefully aren't necessary
