@@ -59,7 +59,7 @@ lint = "pylint fs/onedrivefs/ tests/"
 
 [tool.poe.tasks.test]
 shell = """
-pytest --cov=fs --reruns 2 --only-rerun requests.exceptions.HTTPError
+pytest --cov=fs --reruns 2 --only-rerun requests.exceptions.HTTPError || exit 1
 coverage xml
 """
 
