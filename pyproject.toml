@@ -32,7 +32,6 @@ urllib3 = [
 	{ version = ">=1.26", python = ">=3.10,<4" }
 ]
 requests-oauthlib = ">=1.2.0"
-poethepoet = ">=0.16.4"
 
 [tool.poetry.dev-dependencies]
 pyperclip = ">=1.7"
@@ -48,6 +47,7 @@ cffi = [
 	{ version = ">=1.15.0", markers = "sys_platform == 'darwin'" }
 ]
 pytest-rerunfailures = ">=10"
+poethepoet = ">=0.16.4"
 
 [tool.poetry.plugins] # Optional super table
 
