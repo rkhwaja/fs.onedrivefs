@@ -43,6 +43,15 @@ def _HandleError(response):
 		_log.error(f'Response text: {response.text}')
 	response.raise_for_status()
 
+def _SubscriptionPayload(resourceRoot, notificationUrl, expirationDateTime, clientState):
+	return {
+		'changeType': 'updated', # OneDrive only supports updated
+		'notificationUrl': notificationUrl,
+		'resource': f'/{resourceRoot}/root',
+		'expirationDateTime': _FormatDateTime(expirationDateTime),
+		'clientState': clientState
+	}
+
 class _UploadOnClose(BytesIO):
 	def __init__(self, session, path, itemId, mode):
 		self.session = session
@@ -308,13 +317,31 @@ class OneDriveFS(FS):
 	def create_subscription(self, notification_url, expiration_date_time, client_state):
 		_log.info(f'create_subscription({notification_url}, {expiration_date_time}, {client_state})')
 		with self._lock:
-			payload = {
-				'changeType': 'updated', # OneDrive only supports updated
-				'notificationUrl': notification_url,
-				'resource': f'/{self._resource_root}/root',
-				'expirationDateTime': _FormatDateTime(expiration_date_time),
-				'clientState': client_state
-			}
+			payload = _SubscriptionPayload(self._resource_root, notification_url, expiration_date_time, client_state)
+			response = self.session.post(f'{self._service_root}/subscriptions', json=payload)
+			# https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/webhook-receiver-validation-request
+			if response.status_code == 401:
+				try:
+					response.raise_for_status()
+					assert False, 'Exception should have been thrown since we already know the HTTP code'
+				except HTTPError as e:
+					raise UnauthorizedDomain() from e
+			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
+
+			assert response.status_code == 201, 'Expected 201 Created response'
+			subscription = response.json()
+			assert subscription['changeType'] == payload['changeType']
+			assert subscription['notificationUrl'] == payload['notificationUrl']
+			assert subscription['resource'] == payload['resource']
+			assert 'expirationDateTime' in subscription
+			assert subscription['clientState'] == payload['clientState']
+			_log.debug(f'Subscription created successfully: {subscription}')
+			return {'id': subscription['id'], 'expiration': datetime.fromisoformat(subscription['expirationDateTime'])}
+
+	async def create_subscription(self, notification_url, expiration_date_time, client_state):
+		_log.info(f'create_subscription({notification_url}, {expiration_date_time}, {client_state})')
+		with self._lock:
+			payload = _SubscriptionPayload(self._resource_root, notification_url, expiration_date_time, client_state)
 			response = self.session.post(f'{self._service_root}/subscriptions', json=payload)
 			# https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/webhook-receiver-validation-request
 			if response.status_code == 401:
