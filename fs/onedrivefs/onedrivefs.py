@@ -20,6 +20,9 @@ _log = getLogger(__name__)
 
 SIMPLE_UPLOAD_LIMIT = 250e6
 
+class UnauthorizedDomain(Exception):
+	pass
+
 def _ParseDateTime(dt):
 	try:
 		return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ')
@@ -313,6 +316,13 @@ class OneDriveFS(FS):
 				'clientState': client_state
 			}
 			response = self.session.post(f'{self._service_root}/subscriptions', json=payload)
+			# https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/webhook-receiver-validation-request
+			if response.status_code == 401:
+				try:
+					response.raise_for_status()
+					assert False, 'Exception should have been thrown since we already know the HTTP code'
+				except HTTPError as e:
+					raise UnauthorizedDomain() from e
 			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == codes.created, 'Expected 201 Created response'
 			subscription = response.json()
