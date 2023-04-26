@@ -332,7 +332,7 @@ class OneDriveFS(FS):
 			assert 'expirationDateTime' in subscription
 			assert subscription['clientState'] == payload['clientState']
 			_log.debug(f'Subscription created successfully: {subscription}')
-			return subscription['id']
+			return {'id': subscription['id'], 'expiration': datetime.fromisoformat(subscription['expirationDateTime'])}
 
 	def delete_subscription(self, id_):
 		_log.info(f'delete_subscription({id_})')
