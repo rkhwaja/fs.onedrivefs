@@ -23,6 +23,9 @@ SIMPLE_UPLOAD_LIMIT = 250e6
 class UnauthorizedDomain(Exception):
 	pass
 
+class SubscriptionMissing(Exception):
+	pass
+
 def _ParseDateTime(dt):
 	try:
 		return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ')
@@ -42,6 +45,16 @@ def _HandleError(response):
 	if response.ok is False:
 		_log.error(f'Response text: {response.text}')
 	response.raise_for_status()
+
+def _CheckForSubscriptionMissing(response, id_):
+	if response.status_code != 404:
+		return
+	# generate exception so that we can use it as a chained exception
+	try:
+		response.raise_for_status()
+		assert False, 'Exception should have been thrown since we already know the HTTP code'
+	except HTTPError as e:
+		raise SubscriptionMissing(id_) from e
 
 class _UploadOnClose(BytesIO):
 	def __init__(self, session, path, itemId, mode):
@@ -318,6 +331,7 @@ class OneDriveFS(FS):
 			response = self.session.post(f'{self._service_root}/subscriptions', json=payload)
 			# https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/webhook-receiver-validation-request
 			if response.status_code == 401:
+				# generate exception so that we can use it as a chained exception
 				try:
 					response.raise_for_status()
 					assert False, 'Exception should have been thrown since we already know the HTTP code'
@@ -338,14 +352,16 @@ class OneDriveFS(FS):
 		_log.info(f'delete_subscription({id_})')
 		with self._lock:
 			response = self.session.delete(f'{self._service_root}/subscriptions/{id_}')
-			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
+			_CheckForSubscriptionMissing(response, id_)
+			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == codes.no_content, 'Expected 204 No content'
 
 	def update_subscription(self, id_, expiration_date_time):
 		_log.info(f'update_subscription({id_}, {expiration_date_time})')
 		with self._lock:
 			response = self.session.patch(f'{self._service_root}/subscriptions/{id_}', json={'expirationDateTime': _FormatDateTime(expiration_date_time)})
-			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
+			_CheckForSubscriptionMissing(response, id_)
+			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
 			assert response.status_code == codes.ok, 'Expected 200 OK'
 			subscription = response.json()
 			assert subscription['id'] == id_
