@@ -48,6 +48,7 @@ cffi = [
 ]
 pytest-rerunfailures = ">=10"
 poethepoet = ">=0.16.4"
+pytest-xdist = ">=3.2.1"
 
 [tool.poetry.plugins] # Optional super table
 
@@ -59,7 +60,7 @@ lint = "pylint fs/onedrivefs/ tests/"
 
 [tool.poe.tasks.test]
 shell = """
-pytest --cov=fs --reruns 2 --only-rerun requests.exceptions.HTTPError || exit 1
+pytest --cov=fs -n 8 --reruns 2 --only-rerun requests.exceptions.HTTPError || exit 1
 coverage xml
 """
 
