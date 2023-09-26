@@ -8,7 +8,7 @@ from sys import stdout
 from pyperclip import copy
 from requests_oauthlib import OAuth2Session
 
-from github import UploadSecret # pylint: disable=import-error
+from github import UploadSecret
 
 class TokenStorageFile:
 	def __init__(self, path):
@@ -20,7 +20,7 @@ class TokenStorageFile:
 
 	def Load(self):
 		try:
-			with open(self.path, 'r', encoding='utf-8') as f:
+			with open(self.path, encoding='utf-8') as f:
 				return load(f)
 		except FileNotFoundError:
 			return None
@@ -39,7 +39,7 @@ def Authorize(clientId, clientSecret, redirectUri, storagePath):
 
 	tokenStorage = TokenStorageFile(storagePath)
 
-	environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = 'some value'
+	environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = 'some value' # noqa: S105
 	token_ = session.fetch_token(tokenUrl, client_secret=clientSecret, authorization_response=redirectResponse, include_client_id=True)
 	tokenStorage.Save(token_)
 	if 'XGITHUB_API_PERSONAL_TOKEN' in environ:

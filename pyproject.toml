@@ -36,8 +36,6 @@ requests-oauthlib = ">=1.2.0"
 [tool.poetry.dev-dependencies]
 pyperclip = ">=1.7"
 pytest = ">=3.10"
-pylint = ">=2.13" # need at least this for all the extensions
-pylint-quotes = ">=0.2.1"
 pytest-localserver = ">=0.5.0"
 pyngrok = ">=5.0.6,<6"
 click = ">=7.0"
@@ -49,6 +47,7 @@ cffi = [
 pytest-rerunfailures = ">=10"
 poethepoet = ">=0.16.4"
 pytest-xdist = ">=3.2.1"
+ruff = ">=0.0.291"
 
 [tool.poetry.plugins] # Optional super table
 
@@ -56,7 +55,7 @@ pytest-xdist = ">=3.2.1"
 "onedrive" = "fs.onedrivefs.opener:OneDriveFSOpener"
 
 [tool.poe.tasks]
-lint = "pylint fs/onedrivefs/ tests/"
+lint = "ruff fs/onedrivefs/ tests/"
 
 [tool.poe.tasks.test]
 shell = """
@@ -64,40 +63,20 @@ pytest --cov=fs -n 8 --reruns 2 --only-rerun requests.exceptions.HTTPError || ex
 coverage xml
 """
 
-[tool.pylint.master]
-load-plugins = [
-	"pylint_quotes",
-	"pylint.extensions.code_style",
-	"pylint.extensions.confusing_elif",
-	"pylint.extensions.bad_builtin",
-	"pylint.extensions.bad_builtin",
-	# "pylint.extensions.mccabe",
-	"pylint.extensions.check_elif",
-	"pylint.extensions.redefined_variable_type",
-	"pylint.extensions.overlapping_exceptions",
-	"pylint.extensions.empty_comment",
-	"pylint.extensions.set_membership",
-	# "pylint.extensions.while_used",
-	]
-enable="useless-suppression"
+[tool.ruff]
+line-length = 1000
+ignore = ["ANN", "B011", "COM812", "D", "DTZ", "EM", "FBT002", "FIX", "G004", "I", "N802", "N803", "N806", "N816", "PLR0913", "PTH", "S101", "T201", "TD", "TRY003", "W191"]
+select = ["ALL"]
+target-version = "py37"
 
-[tool.pylint.format]
-indent-string = "\t"
-max-line-length = "200"
-string-quote = "single-avoid-escape"
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"fs/**" = ["PT"]
+"tests/**" = ["N999", "PT009", "PT011", "PT013"]
 
-[tool.pylint.messages_control]
-disable = [
-	"bad-continuation",
-	"consider-using-assignment-expr",
-	"duplicate-code",
-	"fixme",
-	"invalid-name",
-	"missing-docstring",
-	"too-many-locals",
-	"logging-fstring-interpolation",
-	"no-name-in-module" # currently has a bunch of false positives on python 3.11
-]
+[tool.ruff.flake8-quotes]
+inline-quotes = "single"
+multiline-quotes = "single"
 
 [build-system]
 requires = ["poetry_core>=1.0.0"]

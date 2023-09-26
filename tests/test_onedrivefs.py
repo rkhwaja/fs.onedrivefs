@@ -1,4 +1,3 @@
-# coding: utf-8
 from datetime import datetime, timedelta, timezone
 from hashlib import sha1
 from io import BytesIO
@@ -14,9 +13,9 @@ from fs.onedrivefs import OneDriveFS, OneDriveFSOpener
 from fs.opener import open_fs, registry
 from fs.subfs import SubFS
 from fs.test import FSTestCases
-from pyngrok import conf, ngrok # pylint: disable=wrong-import-order
-from pytest import fixture, mark, raises # pylint: disable=wrong-import-order
-from pytest_localserver.http import WSGIServer # pylint: disable=wrong-import-order
+from pyngrok import conf, ngrok
+from pytest import fixture, mark, raises
+from pytest_localserver.http import WSGIServer
 
 from .github import UploadSecret
 
@@ -43,12 +42,12 @@ class TokenStorageFile:
 
 	def Load(self):
 		try:
-			with open(self.path, 'r', encoding='utf-8') as f:
+			with open(self.path, encoding='utf-8') as f:
 				return load(f)
 		except FileNotFoundError:
 			return None
 
-class SimpleApp: # pylint: disable=too-few-public-methods
+class SimpleApp:
 	def __init__(self):
 		self.notified = False
 
@@ -74,8 +73,8 @@ def testserver(request):
 	server = WSGIServer(application=SimpleApp())
 	request.cls.server = server
 	server.start()
-	request.addfinalizer(server.stop)
-	return server
+	yield server
+	server.stop()
 
 def CredentialsStorage():
 	if 'GRAPH_API_TOKEN_READONLY' in environ:
@@ -104,12 +103,12 @@ def test_opener_format():
 	# Without the initial "/" character, it should still be assumed to relative to the root
 	fs = open_fs(f'onedrive://{_SAFE_TEST_DIR}?' + encodedParameters)
 	assert isinstance(fs, SubFS), str(fs)
-	assert fs._sub_dir == f'/{_SAFE_TEST_DIR}' # pylint: disable=protected-access
+	assert fs._sub_dir == f'/{_SAFE_TEST_DIR}' # noqa: SLF001
 
 	# It should still accept the initial "/" character
 	fs = open_fs(f'onedrive:///{_SAFE_TEST_DIR}?' + encodedParameters)
 	assert isinstance(fs, SubFS), str(fs)
-	assert fs._sub_dir == f'/{_SAFE_TEST_DIR}' # pylint: disable=protected-access
+	assert fs._sub_dir == f'/{_SAFE_TEST_DIR}' # noqa: SLF001
 
 class TestOneDriveFS(FSTestCases, TestCase):
 	def make_fs(self):
@@ -123,9 +122,9 @@ class TestOneDriveFS(FSTestCases, TestCase):
 	@mark.skipif('NGROK_AUTH_TOKEN' not in environ, reason='Missing NGROK_AUTH_TOKEN environment variable')
 	@mark.usefixtures('testserver')
 	def test_subscriptions(self):
-		port = urlparse(self.server.url).port # pylint: disable=no-member
+		port = urlparse(self.server.url).port
 		info(f'Port: {port}')
-		info(self.server.url) # pylint: disable=no-member
+		info(self.server.url)
 		conf.get_default().auth_token = environ['NGROK_AUTH_TOKEN']
 		tunnel = ngrok.connect(port, bind_tls=True)
 		info(f'tunnel started: {tunnel}')
@@ -137,13 +136,13 @@ class TestOneDriveFS(FSTestCases, TestCase):
 		info('Touched the file, waiting...')
 		# need to wait for some time for the notification to come through, but also process incoming http requests
 		for _ in range(20):
-			if self.server.app.notified is True: # pylint: disable=no-member
+			if self.server.app.notified is True:
 				break
 			sleep(1)
 		info('Sleep done, deleting subscription')
 		self.fs.delete_subscription(id_)
 		info('subscription deleted')
-		assert self.server.app.notified is True, f'Not notified: {self.server.app.notified}' # pylint: disable=no-member
+		assert self.server.app.notified is True, f'Not notified: {self.server.app.notified}'
 
 	def test_overwrite_file(self):
 		with self.fs.open('small_file_to_overwrite.bin', 'wb') as f:
@@ -171,9 +170,8 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			f.write('y' * 4000000)
 
 	def test_photo_metadata(self):
-		with self.fs.open('canon-ixus.jpg', 'wb') as target:
-			with open('tests/canon-ixus.jpg', 'rb') as source:
-				target.write(source.read())
+		with self.fs.open('canon-ixus.jpg', 'wb') as target, open('tests/canon-ixus.jpg', 'rb') as source:
+			target.write(source.read())
 
 		# sometimes it take a few seconds for the server to process EXIF data
 		# until it's processed, the "photo" section should be missing
@@ -197,9 +195,8 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			self.fail('EXIF metadata not processed in 20s')
 
 	def test_photo_metadata2(self):
-		with self.fs.open('DSCN0010.jpg', 'wb') as target:
-			with open('tests/DSCN0010.jpg', 'rb') as source:
-				target.write(source.read())
+		with self.fs.open('DSCN0010.jpg', 'wb') as target, open('tests/DSCN0010.jpg', 'rb') as source:
+			target.write(source.read())
 
 		# sometimes it take a few seconds for the server to process EXIF data
 		# until it's processed, the "photo" section should be missing
@@ -228,12 +225,11 @@ class TestOneDriveFS(FSTestCases, TestCase):
 			self.fail(f'EXIF metadata not processed in {iterations * sleepTime}s')
 
 	def test_hashes(self):
-		with self.fs.open('DSCN0010.jpg', 'wb') as target:
-			with open('tests/DSCN0010.jpg', 'rb') as source:
-				data = source.read()
-				target.write(data)
+		with self.fs.open('DSCN0010.jpg', 'wb') as target, open('tests/DSCN0010.jpg', 'rb') as source:
+			data = source.read()
+			target.write(data)
 
-		hash_ = sha1()
+		hash_ = sha1() # noqa: S324
 		hash_.update(data)
 
 		self.assertEqual(hash_.hexdigest().upper(), self.fs.getinfo('DSCN0010.jpg').get('hashes', 'SHA1'))

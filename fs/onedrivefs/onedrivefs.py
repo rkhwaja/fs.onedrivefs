@@ -11,10 +11,12 @@ from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
-from requests import get # pylint: disable=wrong-import-order
-from requests_oauthlib import OAuth2Session # pylint: disable=wrong-import-order
+from requests import codes, get
+from requests_oauthlib import OAuth2Session
 
 _log = getLogger(__name__)
+
+SIMPLE_UPLOAD_LIMIT = 4e6
 
 def _ParseDateTime(dt):
 	try:
@@ -45,8 +47,8 @@ class _UploadOnClose(BytesIO):
 		initialData = None
 		if (self.parsedMode.appending or self.parsedMode.reading) and not self.parsedMode.truncate:
 			response = self.session.get_path(path, '/content')
-			assert response.status_code != 206, 'Partial content response'
-			if response.status_code == 404:
+			assert response.status_code != codes.partial, 'Partial content response'
+			if response.status_code == codes.not_found:
 				if not self.parsedMode.appending:
 					raise ResourceNotFound(path)
 			else:
@@ -74,12 +76,12 @@ class _UploadOnClose(BytesIO):
 
 	def read(self, size=-1):
 		if self.parsedMode.reading is False:
-			raise IOError('This file object is not readable')
+			raise OSError('This file object is not readable')
 		return super().read(size)
 
 	def write(self, data):
 		if self.parsedMode.writing is False:
-			raise IOError('This file object is not writable')
+			raise OSError('This file object is not writable')
 		return super().write(data)
 
 	def readable(self):
@@ -109,7 +111,7 @@ class _UploadOnClose(BytesIO):
 			assert len(dataToSend) == length
 			headers = {'content-range': f'bytes {bytesSent}-{bytesSent + length - 1}/{size}'}
 			response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
-			if response.status_code == 409:
+			if response.status_code == codes.conflict:
 				_log.warning(f'Retrying upload due to {response}')
 				response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			response.raise_for_status()
@@ -123,15 +125,15 @@ class _UploadOnClose(BytesIO):
 			filename = basename(self.path)
 			if self.itemId is None:
 				# we have to create a new file
-				if len(self.getvalue()) < 4e6:
+				if len(self.getvalue()) < SIMPLE_UPLOAD_LIMIT:
 					response = self.session.put_item(parentId, f':/{filename}:/content', data=self.getvalue())
 					response.raise_for_status()
 				else:
 					self._ResumableUpload(parentId, filename)
-			elif len(self.getvalue()) < 4e6: # upload a new version
+			elif len(self.getvalue()) < SIMPLE_UPLOAD_LIMIT: # upload a new version
 				response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 				# workaround for possible OneDrive bug
-				if response.status_code == 409:
+				if response.status_code == codes.conflict:
 					_log.warning(f'Retrying upload due to {response}')
 					response = self.session.put_item(self.itemId, '/content', data=self.getvalue())
 				response.raise_for_status()
@@ -140,7 +142,7 @@ class _UploadOnClose(BytesIO):
 		self._closed = True
 
 class SubOneDriveFS(SubFS):
-	def download_as_format(self, path, output_file, format, **options): # pylint: disable=redefined-builtin
+	def download_as_format(self, path, output_file, format, **options): # noqa: A002
 		fs, pathDelegate = self.delegate_path(path)
 		return fs.download_as_format(pathDelegate, output_file, format, **options)
 
@@ -197,7 +199,7 @@ class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
 	_service_root = 'https://graph.microsoft.com/v1.0'
 
-	def __init__(self, clientId, clientSecret, token, SaveToken, tenant='consumers', **kwargs):  # pylint: disable=too-many-arguments
+	def __init__(self, clientId, clientSecret, token, SaveToken, tenant='consumers', **kwargs):
 		super().__init__()
 
 		self.set_drive(**kwargs)
@@ -228,7 +230,7 @@ class OneDriveFS(FS):
 
 	def set_drive(self, driveId=None, userId=None, groupId=None, siteId=None):
 		with self._lock:
-			if sum((bool(x) for x in (driveId, userId, groupId, siteId))) > 1:
+			if sum(bool(x) for x in (driveId, userId, groupId, siteId)) > 1:
 				raise ValueError('Only one of driveId, userId, groupId, or siteId can be specified at a time')
 
 			# Documentation for the MS Graph File API here:
@@ -248,19 +250,18 @@ class OneDriveFS(FS):
 
 			self._drive_root = f'{self._service_root}/{self._resource_root}'
 
-	def download_as_format(self, path, output_file, format, **options): # pylint: disable=redefined-builtin
+	def download_as_format(self, path, output_file, format, **options): # noqa: A002
 		_log.info(f'download_as_format({path}, {output_file}, {format}, {options})')
 		with self._lock:
 			path = self.validatepath(path)
 			# validate per-format arguments
-			if format == 'jpg':
-				if 'width' not in options or 'height' not in options or not isinstance(options['width'], int) or not isinstance(options['height'], int):
-					raise ValueError('Format jpg requires integer width and height arguments')
+			if format == 'jpg' and ('width' not in options or 'height' not in options or not isinstance(options['width'], int) or not isinstance(options['height'], int)):
+				raise ValueError('Format jpg requires integer width and height arguments')
 			options['format'] = format
 			optionsString = urlencode(options)
 			response = self.session.get_path(path, f'/content?{optionsString}')
-			assert response.status_code != 206, 'Partial content response'
-			if response.status_code == 404:
+			assert response.status_code != codes.partial, 'Partial content response'
+			if response.status_code == codes.not_found:
 				raise ResourceNotFound(path)
 			response.raise_for_status()
 
@@ -278,7 +279,7 @@ class OneDriveFS(FS):
 			}
 			response = self.session.post(f'{self._service_root}/subscriptions', json=payload)
 			_HandleError(response) # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
-			assert response.status_code == 201, 'Expected 201 Created response'
+			assert response.status_code == codes.created, 'Expected 201 Created response'
 			subscription = response.json()
 			assert subscription['changeType'] == payload['changeType']
 			assert subscription['notificationUrl'] == payload['notificationUrl']
@@ -293,20 +294,20 @@ class OneDriveFS(FS):
 		with self._lock:
 			response = self.session.delete(f'{self._service_root}/subscriptions/{id_}')
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
-			assert response.status_code == 204, 'Expected 204 No content'
+			assert response.status_code == codes.no_content, 'Expected 204 No content'
 
 	def update_subscription(self, id_, expiration_date_time):
 		_log.info(f'update_subscription({id_}, {expiration_date_time})')
 		with self._lock:
 			response = self.session.patch(f'{self._service_root}/subscriptions/{id_}', json={'expirationDateTime': _FormatDateTime(expiration_date_time)})
 			response.raise_for_status() # this is backup, if actual errors are thrown from here we should respond to them individually, e.g. if validation fails
-			assert response.status_code == 200, 'Expected 200 OK'
+			assert response.status_code == codes.ok, 'Expected 200 OK'
 			subscription = response.json()
 			assert subscription['id'] == id_
 			assert 'expirationDateTime' in subscription
 
 	# Translates OneDrive DriveItem dictionary to an fs Info object
-	def _itemInfo(self, item): # pylint: disable=no-self-use
+	def _itemInfo(self, item):
 		# Looks like the dates returned directly in item.file_system_info (i.e. not file_system_info) are UTC naive-datetimes
 		# We're supposed to return timestamps, which the framework can convert to UTC aware-datetimes
 		rawInfo = {
@@ -346,16 +347,15 @@ class OneDriveFS(FS):
 			rawInfo['location'].update(_UpdateDict(item['location'], 'altitude', 'altitude'))
 			rawInfo['location'].update(_UpdateDict(item['location'], 'latitude', 'latitude'))
 			rawInfo['location'].update(_UpdateDict(item['location'], 'longitude', 'longitude'))
-		if 'file' in item:
-			if 'hashes' in item['file']:
-				rawInfo['hashes'] = {}
-				# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes
-				# CRC32 appears in the spec but not in the implementation
-				rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'crc32Hash', 'CRC32'))
-				# Standard SHA1
-				rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'sha1Hash', 'SHA1'))
-				# proprietary hash for change detection
-				rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'quickXorHash', 'quickXorHash'))
+		if 'file' in item and 'hashes' in item['file']:
+			rawInfo['hashes'] = {}
+			# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes
+			# CRC32 appears in the spec but not in the implementation
+			rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'crc32Hash', 'CRC32'))
+			# Standard SHA1
+			rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'sha1Hash', 'SHA1'))
+			# proprietary hash for change detection
+			rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'quickXorHash', 'quickXorHash'))
 		if 'tags' in item:
 			# doesn't work
 			rawInfo.update({'tags':
@@ -369,12 +369,12 @@ class OneDriveFS(FS):
 		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
-			if response.status_code == 404:
+			if response.status_code == codes.not_found:
 				raise ResourceNotFound(path=path)
 			response.raise_for_status()
 			return self._itemInfo(response.json())
 
-	def setinfo(self, path, info): # pylint: disable=too-many-branches
+	def setinfo(self, path, info): # noqa: C901
 		_log.info(f'setinfo({path}, {info})')
 		def to_datetime(value):
 			return epoch_to_datetime(value).replace(tzinfo=None).isoformat() + 'Z'
@@ -382,7 +382,7 @@ class OneDriveFS(FS):
 		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
-			if response.status_code == 404:
+			if response.status_code == codes.not_found:
 				raise ResourceNotFound(path=path)
 			existingItem = response.json()
 			updatedData = {}
@@ -438,13 +438,13 @@ class OneDriveFS(FS):
 			# parentDir here is expected to have a leading slash
 			assert parentDir[0] == '/'
 			response = self.session.get_path(parentDir)
-			if response.status_code == 404:
+			if response.status_code == codes.not_found:
 				raise ResourceNotFound(parentDir)
 			response.raise_for_status()
 
 			if recreate is False:
 				response = self.session.get_path(path)
-				if response.status_code != 404:
+				if response.status_code != codes.not_found:
 					raise DirectoryExists(path)
 
 			response = self.session.post_path(parentDir, '/children',
@@ -472,7 +472,7 @@ class OneDriveFS(FS):
 				# make sure that the parent directory exists
 				parentDir = dirname(path)
 				response = self.session.get_path(parentDir)
-				if response.status_code == 404:
+				if response.status_code == codes.not_found:
 					raise ResourceNotFound(parentDir)
 				response.raise_for_status()
 			itemId = None
@@ -487,7 +487,7 @@ class OneDriveFS(FS):
 		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path)
-			if response.status_code == 404:
+			if response.status_code == codes.not_found:
 				raise ResourceNotFound(path)
 			response.raise_for_status()
 			itemData = response.json()
@@ -502,7 +502,7 @@ class OneDriveFS(FS):
 		with self._lock:
 			# need to get the item id for this path
 			response = self.session.get_path(path)
-			if response.status_code == 404:
+			if response.status_code == codes.not_found:
 				raise ResourceNotFound(path)
 			itemData = response.json()
 			if 'folder' not in itemData:
@@ -516,7 +516,7 @@ class OneDriveFS(FS):
 
 			itemId = itemData['id'] # let JSON parsing exceptions propagate for now
 			response = self.session.delete_item(itemId)
-			assert response.status_code == 204, itemId # this is according to the spec
+			assert response.status_code == codes.no_content, itemId # this is according to the spec
 
 	# non-essential method - for speeding up walk
 	def scandir(self, path, namespaces=None, page=None):
@@ -524,7 +524,7 @@ class OneDriveFS(FS):
 		path = self.validatepath(path)
 		with self._lock:
 			response = self.session.get_path(path) # assumes path is the full path, starting with "/"
-			if response.status_code == 404:
+			if response.status_code == codes.not_found:
 				raise ResourceNotFound(path=path)
 			if 'folder' not in response.json():
 				_log.debug(f'{response.json()}')
@@ -533,12 +533,11 @@ class OneDriveFS(FS):
 			nextLink = self.session.path_url(path, '/children') # assumes path is the full path, starting with "/"
 			while nextLink:
 				response = self.session.get(nextLink)
-				if response.status_code == 404:
+				if response.status_code == codes.not_found:
 					raise ResourceNotFound(path=path)
 				parsedResult = response.json()
 				assert '@odata.context' in parsedResult
-				for item in parsedResult['value']:
-					result.append(self._itemInfo(item))
+				result.extend([self._itemInfo(item) for item in parsedResult['value']])
 				if page is not None and page[1] <= len(result):
 					return result[page[0]: page[1]]
 				nextLink = parsedResult.get('@odata.nextLink')
@@ -554,7 +553,7 @@ class OneDriveFS(FS):
 			if not overwrite and self.exists(dst_path):
 				raise DestinationExists(dst_path)
 			driveItemResponse = self.session.get_path(src_path)
-			if driveItemResponse.status_code == 404:
+			if driveItemResponse.status_code == codes.not_found:
 				raise ResourceNotFound(src_path)
 			driveItemResponse.raise_for_status()
 			driveItem = driveItemResponse.json()
@@ -571,14 +570,14 @@ class OneDriveFS(FS):
 			parentDir = dirname(dst_path)
 			if parentDir != dirname(src_path):
 				parentDirItem = self.session.get_path(parentDir)
-				if parentDirItem.status_code == 404:
+				if parentDirItem.status_code == codes.not_found:
 					raise ResourceNotFound(parentDir)
 				parentDirItem.raise_for_status()
 				itemUpdate['parentReference'] = {'id': parentDirItem.json()['id']}
 
 			itemId = driveItem['id']
 			response = self.session.patch_item(itemId, json=itemUpdate)
-			if response.status_code == 409 and overwrite is True:
+			if response.status_code == codes.conflict and overwrite is True:
 				# delete the existing version and then try again
 				response = self.session.delete_path(dst_path)
 				response.raise_for_status()
@@ -587,7 +586,7 @@ class OneDriveFS(FS):
 				response = self.session.patch_item(itemId, json=itemUpdate)
 				response.raise_for_status()
 				return
-			if response.status_code == 409 and overwrite is False:
+			if response.status_code == codes.conflict and overwrite is False:
 				_log.debug("Retrying move in case it's an erroneous error (see issue #7)")
 				response = self.session.patch_item(itemId, json=itemUpdate)
 				response.raise_for_status()
@@ -603,7 +602,7 @@ class OneDriveFS(FS):
 				raise DestinationExists(dst_path)
 
 			driveItemResponse = self.session.get_path(src_path)
-			if driveItemResponse.status_code == 404:
+			if driveItemResponse.status_code == codes.not_found:
 				raise ResourceNotFound(src_path)
 			driveItemResponse.raise_for_status()
 			driveItem = driveItemResponse.json()
@@ -615,7 +614,7 @@ class OneDriveFS(FS):
 			newFilename = basename(dst_path)
 
 			parentDirResponse = self.session.get_path(newParentDir)
-			if parentDirResponse.status_code == 404:
+			if parentDirResponse.status_code == codes.not_found:
 				raise ResourceNotFound(src_path)
 			parentDirResponse.raise_for_status()
 			parentDirItem = parentDirResponse.json()
@@ -626,12 +625,12 @@ class OneDriveFS(FS):
 				'name': newFilename
 			})
 			response.raise_for_status()
-			assert response.status_code == 202, 'Response code should be 202 (Accepted)'
+			assert response.status_code == codes.accepted, 'Response code should be 202 (Accepted)'
 			monitorUri = response.headers['Location']
 			while True:
 				# monitor uris don't require authentication
 				# (https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/long-running-actions)
-				jobStatusResponse = get(monitorUri)
+				jobStatusResponse = get(monitorUri) # noqa: S113
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()
 				if jobStatus['operation'] != 'itemCopy' or jobStatus['status'] not in ['inProgress', 'completed', 'notStarted']:
