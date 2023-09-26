@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 __all__ = ['OneDriveFSOpener']
+
+from typing import ClassVar
 
 from fs.opener import Opener
 
@@ -7,10 +11,10 @@ from .onedrivefs import OneDriveFS
 def _SaveToken(_):
 	pass
 
-class OneDriveFSOpener(Opener): # pylint: disable=too-few-public-methods
-	protocols = ['onedrive']
+class OneDriveFSOpener(Opener):
+	protocols: ClassVar[list[str]] = ['onedrive']
 
-	def open_fs(self, fs_url, parse_result, writeable, create, cwd): # pylint: disable=too-many-arguments
+	def open_fs(self, fs_url, parse_result, writeable, create, cwd): # noqa: ARG002
 		directory = parse_result.resource
 
 		# this is missing various fields that hopefully aren't necessary
