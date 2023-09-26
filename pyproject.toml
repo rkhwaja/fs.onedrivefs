@@ -3,7 +3,7 @@ name = "fs.onedrivefs"
 packages = [
     { include = "fs"}
 ]
-version = "1.1.4"
+version = "1.1.5"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 authors = ["Rehan Khwaja <rehan@khwaja.name>"]
 license = "MIT"
@@ -14,23 +14,20 @@ classifiers = [
 	"License :: OSI Approved :: MIT License",
 	"Development Status :: 5 - Production/Stable",
 	"Intended Audience :: Developers",
-	"Programming Language :: Python :: 3.7",
 	"Programming Language :: Python :: 3.8",
 	"Programming Language :: Python :: 3.9",
 	"Programming Language :: Python :: 3.10",
-	"Programming Language :: Python :: 3.11"
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12"
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.7,<4"
+python = ">=3.8,<4"
 # Need 2.0.5 for opendir factory parameter
 # Need 2.0.6 because in 2.0.5, opener didn't work
 # Need 2.4.13 for preserve_time flag
 fs = ">=2.4.13,<3"
 requests = ">=2.20"
-urllib3 = [
-	{ version = ">=1.26", python = ">=3.10,<4" }
-]
 requests-oauthlib = ">=1.2.0"
 
 [tool.poetry.dev-dependencies]
@@ -65,7 +62,7 @@ coverage xml
 
 [tool.ruff]
 line-length = 1000
-ignore = ["ANN", "B011", "COM812", "D", "DTZ", "EM", "FBT002", "FIX", "G004", "I", "N802", "N803", "N806", "N816", "PLR0913", "PTH", "S101", "T201", "TD", "TRY003", "W191"]
+ignore = ["ANN", "B011", "COM812", "D", "DTZ", "EM", "ERA001", "FBT002", "FIX", "G004", "I", "N802", "N803", "N806", "N815", "N816", "PLR0913", "PTH", "S101", "T201", "TD", "TRY003", "W191"]
 select = ["ALL"]
 target-version = "py37"
 
