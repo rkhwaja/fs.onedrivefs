@@ -15,7 +15,7 @@ def _EncryptForGithubSecret(publicKey, secretValue):
 def UploadSecret(token):
 	# needs a PAT with permissions to public repositories
 	auth = HTTPBasicAuth(environ['XGITHUB_USERNAME'], environ['XGITHUB_API_PERSONAL_TOKEN'])
-	headers = {'Accept': 'application/vnd.github.v3+json'}
+	headers = {'Accept': 'application/vnd.github+json'}
 
 	owner = environ['XGITHUB_REPO_OWNER']
 	baseUrl = f'https://api.github.com/repos/{owner}/fs.onedrivefs/actions/secrets'
