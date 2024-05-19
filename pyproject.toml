@@ -1,6 +1,6 @@
 [project]
 name = "fs.onedrivefs"
-version = "1.2.0"
+version = "1.2.1"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 maintainers = [
 	{ name = "Rehan KHwaja", email = "rehan@khwaja.name" }
@@ -15,7 +15,8 @@ classifiers = [
 	"Programming Language :: Python :: 3.9",
 	"Programming Language :: Python :: 3.10",
 	"Programming Language :: Python :: 3.11",
-	"Programming Language :: Python :: 3.12"
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
 ]
 requires-python = ">=3.8"
 dependencies = [
