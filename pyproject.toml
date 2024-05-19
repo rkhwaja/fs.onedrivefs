@@ -44,7 +44,7 @@ cffi = [
 pytest-rerunfailures = ">=10"
 poethepoet = ">=0.16.4"
 pytest-xdist = ">=3.2.1"
-ruff = ">=0.0.291"
+ruff = ">=0.4.4"
 
 [tool.poetry.plugins] # Optional super table
 
@@ -52,7 +52,7 @@ ruff = ">=0.0.291"
 "onedrive" = "fs.onedrivefs.opener:OneDriveFSOpener"
 
 [tool.poe.tasks]
-lint = "ruff fs/onedrivefs/ tests/"
+lint = "ruff check fs/onedrivefs/ tests/"
 
 [tool.poe.tasks.test]
 shell = """
@@ -62,16 +62,16 @@ coverage xml
 
 [tool.ruff]
 line-length = 1000
-ignore = ["ANN", "B011", "COM812", "D", "DTZ", "EM", "ERA001", "FBT002", "FIX", "G004", "I", "N802", "N803", "N806", "N815", "N816", "PLR0913", "PTH", "S101", "T201", "TD", "TRY003", "W191"]
-select = ["ALL"]
-target-version = "py37"
+lint.ignore = ["ANN", "B011", "COM812", "D", "DTZ", "EM", "ERA001", "FBT002", "FIX", "G004", "I", "N802", "N803", "N806", "N815", "N816", "PLR0912", "PLR0913", "PTH", "S101", "T201", "TD", "TRY003", "W191"]
+lint.select = ["ALL"]
+target-version = "py38"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "fs/**" = ["PT"]
 "tests/**" = ["N999", "PT009", "PT011", "PT013"]
 
-[tool.ruff.flake8-quotes]
+[tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
 multiline-quotes = "single"
 
