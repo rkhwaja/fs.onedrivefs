@@ -11,7 +11,7 @@ from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
-from requests import codes, get
+from requests import codes, get, Session
 from requests_oauthlib import OAuth2Session
 
 _log = getLogger(__name__)
@@ -155,10 +155,25 @@ class SubOneDriveFS(SubFS):
 	def update_subscription(self, id_, expiration_date_time):
 		return self.delegate_fs().update_subscription(id_, expiration_date_time)
 
-class OneDriveSession(OAuth2Session):
-	def __init__(self, *args, drive_root, **kwargs):
+class OneDriveSession:
+	def __init__(self, drive_root, session: Session):
 		self._drive_root = drive_root
-		super().__init__(*args, **kwargs)
+		self.session = session
+
+	def get(self, *args, **kwargs):
+		return self.session.get(*args, **kwargs)
+
+	def post(self, *args, **kwargs):
+		return self.session.post(*args, **kwargs)
+
+	def patch(self, *args, **kwargs):
+		return self.session.patch(*args, **kwargs)
+
+	def put(self, *args, **kwargs):
+		return self.session.put(*args, **kwargs)
+
+	def delete(self, *args, **kwargs):
+		return self.session.delete(*args, **kwargs)
 
 	def path_url(self, path, extra):
 		# the path must start with '/'
@@ -199,20 +214,28 @@ class OneDriveFS(FS):
 	subfs_class = SubOneDriveFS
 	_service_root = 'https://graph.microsoft.com/v1.0'
 
-	def __init__(self, clientId, clientSecret, token, SaveToken, tenant='consumers', **kwargs):
+	def __init__(self, clientId=None, clientSecret=None, token=None, SaveToken=None, tenant='consumers', session=None, **kwargs):
 		super().__init__()
 
 		self.set_drive(**kwargs)
-		auto_refresh_kwargs = {'client_id': clientId}
-		if clientSecret is not None:
-			auto_refresh_kwargs['client_secret'] = clientSecret
+
+		if session is None:
+
+			auto_refresh_kwargs = {'client_id': clientId}
+			if clientSecret is not None:
+				auto_refresh_kwargs['client_secret'] = clientSecret
+
+			session = OAuth2Session(
+				client_id=clientId,
+				token=token,
+				auto_refresh_kwargs=auto_refresh_kwargs,
+				auto_refresh_url=f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token',
+				token_updater=SaveToken,
+			)
+
 		self.session = OneDriveSession(
-			client_id=clientId,
-			token=token,
-			auto_refresh_kwargs=auto_refresh_kwargs,
-			auto_refresh_url=f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token',
-			token_updater=SaveToken,
-			drive_root=self._drive_root
+			drive_root=self._drive_root,
+			session=session
 		)
 
 		self._meta = {
