@@ -48,15 +48,14 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install poetry
-      uses: abatilo/actions-poetry@v3
+    - name: Install uv
+      uses: yezz123/setup-uv@v4
     - name: Dependencies
       run: |
-        poetry config virtualenvs.create false
-        poetry install
+        uv sync --no-cache
     - name: Linter
       run: |
-        poe lint
+        uv run poe lint
     - name: Tests
       env:
         GRAPH_API_CLIENT_ID: ${{ secrets.GRAPH_API_CLIENT_ID }}
@@ -69,7 +68,7 @@ jobs:
       if: ${{needs.secrets.outputs.valid}} == 'true'
       run: |
         if python --version | grep -q 'Python 3.12' ; then
-          poe test
+          uv run poe test
         fi
     - name: Coverage
       uses: codecov/codecov-action@v4
