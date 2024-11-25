@@ -49,13 +49,42 @@ coverage xml
 
 [tool.ruff]
 line-length = 1000
-lint.ignore = ["ANN", "B011", "COM812", "D", "DTZ", "EM", "ERA001", "FBT002", "FIX", "G004", "I", "N802", "N803", "N806", "N815", "N816", "PLR0912", "PLR0913", "PTH", "S101", "T201", "TD", "TRY003", "W191"]
+lint.ignore = [
+    "ANN",      # Requires annotations
+    "B011",     # Disallows `assert False`
+    "COM812",   # Requires trailing commas
+    "D",        # Requires various docstrings
+    "DTZ",      # flake8-datetimez
+    "EM",       # Disallows using a string literal for exceptions
+    "ERA001",   # Disallows commented out code
+    "FBT002",   # Disallows boolean positional arguments
+    "FIX",      # Disallows FIXME-type comments
+    "G004",     # Disallows using f-strings in log strings
+    "I",        # False positive isort complaints
+    "N",        # PEP8 naming rules
+    "PLR0912",  # Too many branches
+    "PLR0913",  # Too many arguments
+    "PTH",      # Requires use of pathlib
+    "S101",     # Disallows use of assert
+    "T201",     # Disallows use of print
+    "TD",       # Requires a particular formatting of TODO comments
+    "TRY003",   # Disallows long exception messages
+    "W191",     # Disallows tab indentation
+    ]
 lint.select = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
-"fs/**" = ["PT"]
-"tests/**" = ["N999", "PT009", "PT011", "PT013"]
+"__init__.py" = [
+    "F401",     # Unused import
+    ]
+"fs/**" = [
+    "PT",       # Various pytest style requirements
+    ]
+"tests/**" = [
+    "PT009",    # Disallows unittest assertions, but they come from the `fs` package
+    "PT011",    # Too general an exception type expected
+    "PT013",    # Requires pytest to be imported a certain way
+    ]
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
