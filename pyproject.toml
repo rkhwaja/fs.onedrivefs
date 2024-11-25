@@ -51,7 +51,6 @@ coverage xml
 line-length = 1000
 lint.ignore = ["ANN", "B011", "COM812", "D", "DTZ", "EM", "ERA001", "FBT002", "FIX", "G004", "I", "N802", "N803", "N806", "N815", "N816", "PLR0912", "PLR0913", "PTH", "S101", "T201", "TD", "TRY003", "W191"]
 lint.select = ["ALL"]
-target-version = "py38"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
