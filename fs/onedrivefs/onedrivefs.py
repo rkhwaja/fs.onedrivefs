@@ -14,6 +14,8 @@ from fs.time import datetime_to_epoch, epoch_to_datetime
 from requests import codes, get, Session
 from requests_oauthlib import OAuth2Session
 
+from .throttling import throttle
+
 _log = getLogger(__name__)
 
 SIMPLE_UPLOAD_LIMIT = 4e6
@@ -160,18 +162,23 @@ class OneDriveSession:
 		self._drive_root = drive_root
 		self.session = session
 
+	@throttle()
 	def get(self, *args, **kwargs):
 		return self.session.get(*args, **kwargs)
 
+	@throttle()
 	def post(self, *args, **kwargs):
 		return self.session.post(*args, **kwargs)
 
+	@throttle()
 	def patch(self, *args, **kwargs):
 		return self.session.patch(*args, **kwargs)
 
+	@throttle()
 	def put(self, *args, **kwargs):
 		return self.session.put(*args, **kwargs)
 
+	@throttle()
 	def delete(self, *args, **kwargs):
 		return self.session.delete(*args, **kwargs)
 
