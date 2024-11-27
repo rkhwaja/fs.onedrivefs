@@ -116,6 +116,11 @@ class _UploadOnClose(BytesIO):
 			if response.status_code == codes.conflict:
 				_log.warning(f'Retrying upload due to {response}')
 				response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
+			if response.ok is False:
+				_log.warning(f'Resumable upload error: {response.status_code} - {response.content}')
+				if response.status_code == codes.unauthorized:
+					_log.warning('Retrying due to 401 error')
+					response = self.session.put(uploadUrl, data=dataToSend, headers=headers)
 			response.raise_for_status()
 			bytesSent += length
 

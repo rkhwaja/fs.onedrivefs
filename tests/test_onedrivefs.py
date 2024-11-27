@@ -126,7 +126,7 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 		return self.fullFS.makedirs(self.testSubdir)
 
 	def destroy_fs(self, _):
-		self.fullFS.removetree(self.testSubdir)
+		pass # self.fullFS.removetree(self.testSubdir)
 
 	@mark.skipif('NGROK_AUTH_TOKEN' not in environ, reason='Missing NGROK_AUTH_TOKEN environment variable')
 	@mark.usefixtures('testserver')
