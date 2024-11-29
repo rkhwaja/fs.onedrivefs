@@ -650,7 +650,7 @@ class OneDriveFS(FS):
 			parentDirItem = parentDirResponse.json()
 
 			# This just asynchronously starts the copy
-			response = self.session.post_item(driveItem['id'], '/copy', json={
+			response = self.session.post_item(driveItem['id'], '/copy?@microsoft.graph.conflictBehavior=replace', json={
 				'parentReference': {'driveId': parentDirItem['parentReference']['driveId'], 'id': parentDirItem['id']},
 				'name': newFilename
 			})
@@ -663,7 +663,8 @@ class OneDriveFS(FS):
 				jobStatusResponse = get(monitorUri) # noqa: S113
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()
-				if jobStatus['operation'] != 'itemCopy' or jobStatus['status'] not in ['inProgress', 'completed', 'notStarted']:
+				# job status no longer contains an 'operation' field
+				if jobStatus['status'] not in ['inProgress', 'completed', 'notStarted']:
 					_log.warning(f'Unexpected status: {jobStatus}')
 				if jobStatus['status'] == 'completed':
 					break
