@@ -138,7 +138,7 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 		tunnel = ngrok.connect(port, bind_tls=True)
 		info(f'tunnel started: {tunnel}')
 		info(f'publicUrl: {tunnel.public_url}')
-		expirationDateTime = datetime.now(timezone.utc) + timedelta(minutes=5)
+		expirationDateTime = datetime.now(timezone.utc) + timedelta(minutes=60)
 		id_ = self.fs.create_subscription(tunnel.public_url, expirationDateTime, 'client_state')
 		info(f'subscription id: {id_}')
 		self.fs.touch('touched-file.txt')
@@ -147,7 +147,7 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 		for _ in range(20):
 			if self.server.app.notified is True:
 				break
-			sleep(1)
+			sleep(5)
 		info('Sleep done, deleting subscription')
 		self.fs.delete_subscription(id_)
 		info('subscription deleted')
