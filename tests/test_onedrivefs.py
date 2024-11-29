@@ -243,7 +243,18 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 		hash_ = sha1() # noqa: S324
 		hash_.update(data)
 
-		self.assertEqual(hash_.hexdigest().upper(), self.fs.getinfo('DSCN0010.jpg').get('hashes', 'SHA1'))
+		# It takes time for the server to calculate the hashes
+		iterations = 50
+		sleepTime = 5
+		for iteration in range(iterations):
+			info_ = self.fs.getinfo('DSCN0010.jpg')
+			if info_.get('hashes', 'SHA1') is not None:
+				break
+			warning(f'Hashes not calculated in {iteration * sleepTime}s')
+			sleep(sleepTime)
+		else:
+			self.fail(f'Hashes not calculated in {iterations * sleepTime}s')
+		self.assertEqual(hash_.hexdigest().upper(), info_.get('hashes', 'SHA1'))
 
 	def test_download_as_format(self):
 		with self.fs.open('a.md', 'w') as f:
