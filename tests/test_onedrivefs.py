@@ -184,7 +184,9 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 
 		# sometimes it take a few seconds for the server to process EXIF data
 		# until it's processed, the "photo" section should be missing
-		for _ in range(6):
+		iterations = 50
+		sleepTime = 5
+		for _ in range(iterations):
 			info_ = self.fs.getinfo('canon-ixus.jpg')
 
 			self.assertTrue(info_.get('photo', 'camera_make') in {None, 'Canon'})
@@ -199,9 +201,9 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 			self.assertTrue(info_.get('image', 'height') in {None, 480})
 			if info_.get('photo', 'camera_make') is not None:
 				break
-			sleep(5)
+			sleep(sleepTime)
 		else:
-			self.fail('EXIF metadata not processed in 20s')
+			self.fail(f'EXIF metadata not processed in {iterations * sleepTime}s')
 
 	def test_photo_metadata2(self):
 		with self.fs.open('DSCN0010.jpg', 'wb') as target, open('tests/DSCN0010.jpg', 'rb') as source:
@@ -209,7 +211,7 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 
 		# sometimes it take a few seconds for the server to process EXIF data
 		# until it's processed, the "photo" section should be missing
-		iterations = 10
+		iterations = 50
 		sleepTime = 5
 		for iteration in range(iterations):
 			info_ = self.fs.getinfo('DSCN0010.jpg')
