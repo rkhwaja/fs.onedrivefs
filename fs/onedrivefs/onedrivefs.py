@@ -479,8 +479,10 @@ class OneDriveFS(FS):
 
 			response = self.session.post_path(parentDir, '/children',
 				json={'name': basename(path), 'folder': {}})
-			# TODO - will need to deal with these errors locally but don't know what they are yet
-			response.raise_for_status()
+			# Trying to recreate the root directory should be a NOP
+			if response.status_code != codes.conflict or recreate is False or path == '/':
+				# TODO - will need to deal with these errors locally but don't know what they are yet
+				response.raise_for_status()
 			# don't need to close this filesystem so we return the non-closing version
 			return SubFS(self, path)
 
