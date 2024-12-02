@@ -1,6 +1,6 @@
 [project]
 name = "fs.onedrivefs"
-version = "1.2.1"
+version = "1.2.2"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 maintainers = [
 	{ name = "Rehan KHwaja", email = "rehan@khwaja.name" }
