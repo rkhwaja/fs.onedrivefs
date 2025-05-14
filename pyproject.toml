@@ -90,8 +90,8 @@ lint.select = ["ALL"]
 inline-quotes = "single"
 multiline-quotes = "single"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pyperclip>=1.7",
     "pytest>=3.10",
     "pytest-localserver>=0.5.0",
