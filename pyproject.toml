@@ -82,6 +82,7 @@ lint.select = ["ALL"]
     "PT",       # Various pytest style requirements
     ]
 "tests/**" = [
+    "LOG015",   # Disallows logging through root logger
     "PT009",    # Disallows unittest assertions, but they come from the `fs` package
     "PT011",    # Too general an exception type expected
     "PT013",    # Requires pytest to be imported a certain way
@@ -104,5 +105,5 @@ dev = [
     "pytest-rerunfailures>=10",
     "poethepoet>=0.16.4",
     "pytest-xdist>=3.2.1",
-    "ruff>=0.4.4",
+    "ruff>=0.10.0",
 ]
