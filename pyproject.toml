@@ -41,6 +41,7 @@ packages = ["fs"]
 [tool.poe.tasks]
 audit = "pysentry-rs ."
 lint = "ruff check fs/onedrivefs/ tests/"
+ty = "ty check fs tests"
 
 [tool.poe.tasks.test]
 shell = """
@@ -96,6 +97,11 @@ lint.select = ["ALL"]
 inline-quotes = "single"
 multiline-quotes = "single"
 
+[tool.ty.rules]
+invalid-argument-type = "ignore"
+possibly-unbound-attribute = "ignore"
+unresolved-import = "ignore"
+
 [dependency-groups]
 dev = [
     "pyperclip>=1.7",
@@ -111,6 +117,7 @@ dev = [
     "ruff>=0.16.1",
     "ngrok>=1.4.0",
     "pysentry-rs>=0.4.5",
+    "ty>=0.0.1a9",
 ]
 
 [tool.uv]
