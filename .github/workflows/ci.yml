@@ -54,7 +54,9 @@ jobs:
     - name: Dependencies
       run: uv sync --no-cache
     - name: Linter
-      run: poe lint
+      run: |
+        poe lint
+        poe ty
     - name: Tests
       env:
         GRAPH_API_CLIENT_ID: ${{ secrets.GRAPH_API_CLIENT_ID }}
