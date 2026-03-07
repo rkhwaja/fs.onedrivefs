@@ -1,6 +1,6 @@
 [project]
 name = "fs.onedrivefs"
-version = "1.2.3"
+version = "1.2.4"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 maintainers = [
 	{ name = "Rehan KHwaja", email = "rehan@khwaja.name" }
@@ -23,7 +23,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "fs>=2.4.13,<3",
-    "requests>=2.20",
+    "niquests>=3.17.0",
     "requests-oauthlib>=1.2.0",
 ]
 
@@ -45,12 +45,12 @@ lint = "ruff check fs/onedrivefs/ tests/"
 
 [tool.poe.tasks.test]
 shell = """
-pytest --cov=fs -n 8 --reruns 2 --only-rerun requests.exceptions.HTTPError || exit 1
+pytest --cov=fs -n 8 --reruns 2 || exit 1
 coverage xml
 """
 
 [tool.ruff]
-line-length = 1000
+line-length = 320
 lint.ignore = [
     "ANN",      # Requires annotations
     "B011",     # Disallows `assert False`
@@ -107,4 +107,9 @@ dev = [
     "poethepoet>=0.16.4",
     "pytest-xdist>=3.2.1",
     "ruff>=0.10.0",
+]
+
+[tool.uv]
+constraint-dependencies = [
+    "setuptools<81",
 ]

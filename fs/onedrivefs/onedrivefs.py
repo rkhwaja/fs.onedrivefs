@@ -11,7 +11,7 @@ from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
-from requests import codes, get, Session
+from niquests import codes, get, Session
 from requests_oauthlib import OAuth2Session
 
 from .throttling import throttle
@@ -19,6 +19,8 @@ from .throttling import throttle
 _log = getLogger(__name__)
 
 SIMPLE_UPLOAD_LIMIT = 250e6
+
+OAuth2Session.__bases__ = (Session,)
 
 def _ParseDateTime(dt):
 	try:
@@ -667,7 +669,7 @@ class OneDriveFS(FS):
 			while True:
 				# monitor uris don't require authentication
 				# (https://docs.microsoft.com/en-us/onedrive/developer/rest-api/concepts/long-running-actions)
-				jobStatusResponse = get(monitorUri) # noqa: S113
+				jobStatusResponse = get(monitorUri)
 				jobStatusResponse.raise_for_status()
 				jobStatus = jobStatusResponse.json()
 				# job status no longer contains an 'operation' field
