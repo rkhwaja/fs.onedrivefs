@@ -196,7 +196,7 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 			self.assertTrue(info_.get('photo', 'focal_length') in {None, 10.8125})
 			self.assertTrue(info_.get('photo', 'f_number') in {None, 4.0})
 			self.assertTrue(info_.get('photo', 'taken_date_time') in {None, datetime(2001, 6, 9, 15, 17, 32)})
-			self.assertTrue(info_.get('photo', 'iso') in {None})
+			self.assertTrue(info_.get('photo', 'iso') is None)
 			self.assertTrue(info_.get('image', 'width') in {None, 640})
 			self.assertTrue(info_.get('image', 'height') in {None, 480})
 			if info_.get('photo', 'camera_make') is not None:

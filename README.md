@@ -18,7 +18,7 @@ onedriveFS = OneDriveFS(
 # onedriveFS is now a standard pyfilesystem2 file system
 ```
 
-You can handle the tokens outside of the library by passing a [`requests.Session`](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects).
+You can handle the tokens outside of the library by passing a [`niquests.Session`](https://niquests.readthedocs.io/en/stable/user/advanced.html#session-objects).
 Here is an example of a custom session using [MSAL Python](https://learn.microsoft.com/en-us/entra/msal/python/)
 
 ``` python

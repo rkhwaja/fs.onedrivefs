@@ -2,7 +2,7 @@ from functools import wraps
 from logging import getLogger
 from time import sleep
 
-from requests import codes
+from niquests import codes
 
 _log = getLogger(__name__)
 

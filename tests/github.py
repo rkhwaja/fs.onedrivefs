@@ -3,8 +3,8 @@ from json import dumps
 from os import environ
 
 from nacl import encoding, public
-from requests import get, put
-from requests.auth import HTTPBasicAuth
+from niquests import get, put
+from niquests.auth import HTTPBasicAuth
 
 def _EncryptForGithubSecret(publicKey, secretValue):
 	publicKey = public.PublicKey(publicKey.encode('utf-8'), encoding.Base64Encoder())
