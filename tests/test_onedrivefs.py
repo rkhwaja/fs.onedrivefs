@@ -13,7 +13,7 @@ from fs.onedrivefs import OneDriveFS, OneDriveFSOpener
 from fs.opener import open_fs, registry
 from fs.subfs import SubFS
 from fs.test import FSTestCases
-from pyngrok import conf, ngrok
+from ngrok import forward
 from pytest import fixture, mark, raises
 from pytest_localserver.http import WSGIServer
 
@@ -128,18 +128,16 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 	def destroy_fs(self, _):
 		self.fullFS.removetree(self.testSubdir)
 
-	@mark.skipif('NGROK_AUTH_TOKEN' not in environ, reason='Missing NGROK_AUTH_TOKEN environment variable')
+	@mark.skipif('NGROK_AUTHTOKEN' not in environ, reason='Missing NGROK_AUTHTOKEN environment variable')
 	@mark.usefixtures('testserver')
 	def test_subscriptions(self):
 		port = urlparse(self.server.url).port
 		info(f'Port: {port}')
 		info(self.server.url)
-		conf.get_default().auth_token = environ['NGROK_AUTH_TOKEN']
-		tunnel = ngrok.connect(port, bind_tls=True)
-		info(f'tunnel started: {tunnel}')
-		info(f'publicUrl: {tunnel.public_url}')
+		listener = forward(port, authtoken_from_env=True)
+		info(f'publicUrl: {listener.url()}')
 		expirationDateTime = datetime.now(timezone.utc) + timedelta(minutes=60)
-		id_ = self.fs.create_subscription(tunnel.public_url, expirationDateTime, 'client_state')
+		id_ = self.fs.create_subscription(listener.url(), expirationDateTime, 'client_state')
 		info(f'subscription id: {id_}')
 		self.fs.touch('touched-file.txt')
 		info('Touched the file, waiting...')
