@@ -22,6 +22,8 @@ SIMPLE_UPLOAD_LIMIT = 250e6
 
 OAuth2Session.__bases__ = (Session,)
 
+OAuth2Session.post = lambda self, *args, **kwargs: self.request('POST', *args, **kwargs)
+
 def _ParseDateTime(dt):
 	try:
 		return datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ')
