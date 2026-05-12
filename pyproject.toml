@@ -12,14 +12,13 @@ license-files = ["LICENSE"]
 classifiers = [
 	"Development Status :: 5 - Production/Stable",
 	"Intended Audience :: Developers",
-	"Programming Language :: Python :: 3.9",
 	"Programming Language :: Python :: 3.10",
 	"Programming Language :: Python :: 3.11",
 	"Programming Language :: Python :: 3.12",
 	"Programming Language :: Python :: 3.13",
 	"Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "fs>=2.4.13,<3",
     "niquests>=3.17.0",
@@ -96,7 +95,7 @@ multiline-quotes = "single"
 [dependency-groups]
 dev = [
     "pyperclip>=1.7",
-    "pytest>=3.10",
+    "pytest>=9.0.3",
     "pytest-localserver>=0.5.0",
     "click>=7.0",
     "pytest-cov>=2.9.0",
@@ -112,5 +111,7 @@ dev = [
 
 [tool.uv]
 constraint-dependencies = [
+    "requests>=2.33.0", # from audit
     "setuptools<81",
+    "urllib3>=2.7.0", # from audit
 ]
