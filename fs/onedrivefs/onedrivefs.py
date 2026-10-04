@@ -11,7 +11,14 @@ from fs.mode import Mode
 from fs.path import basename, dirname
 from fs.subfs import SubFS
 from fs.time import datetime_to_epoch, epoch_to_datetime
-from niquests import codes, get, Session
+
+import sys
+sys.modules['qh3'] = None
+sys.modules['urllib3.contrib.hface.protocols.http3._qh3'] = None
+
+from niquests import codes, get, Session, TLSConfiguration
+from niquests.packages.urllib3.contrib.anytls import ssl
+from niquests.structures import QuicSharedCache
 from requests_oauthlib import OAuth2Session
 
 from .throttling import throttle
