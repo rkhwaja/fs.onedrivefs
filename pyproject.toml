@@ -1,6 +1,6 @@
 [project]
 name = "fs.onedrivefs"
-version = "1.2.6"
+version = "1.2.7"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 maintainers = [
 	{ name = "Rehan KHwaja", email = "rehan@khwaja.name" }
@@ -57,8 +57,10 @@ lint.ignore = [
 	"CPY001",   # requires copyright notices
     "D",        # Requires various docstrings
     "DTZ",      # flake8-datetimez
+    "E402",     # temporarily because of monkey-patching
     "EM",       # Disallows using a string literal for exceptions
     "ERA001",   # Disallows commented out code
+    "F401",     # temporarily because of monkey-patching
     "FBT002",   # Disallows boolean positional arguments
     "FIX",      # Disallows FIXME-type comments
     "G004",     # Disallows using f-strings in log strings
