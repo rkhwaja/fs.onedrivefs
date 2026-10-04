@@ -54,6 +54,7 @@ lint.ignore = [
     "ANN",      # Requires annotations
     "B011",     # Disallows `assert False`
     "COM812",   # Requires trailing commas
+	"CPY001",   # requires copyright notices
     "D",        # Requires various docstrings
     "DTZ",      # flake8-datetimez
     "EM",       # Disallows using a string literal for exceptions
@@ -65,6 +66,7 @@ lint.ignore = [
     "N",        # PEP8 naming rules
     "PLR0912",  # Too many branches
     "PLR0913",  # Too many arguments
+    "PLR0917",  # Too many positional arguments
     "PTH",      # Requires use of pathlib
     "S101",     # Disallows use of assert
     "T201",     # Disallows use of print
@@ -104,7 +106,7 @@ dev = [
     "pytest-rerunfailures>=10",
     "poethepoet>=0.16.4",
     "pytest-xdist>=3.2.1",
-    "ruff>=0.10.0",
+    "ruff>=0.16.1",
     "ngrok>=1.4.0",
     "pysentry-rs>=0.4.5",
 ]
