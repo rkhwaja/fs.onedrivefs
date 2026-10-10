@@ -1,3 +1,4 @@
+from base64 import b64encode
 from datetime import datetime, timedelta, timezone
 from hashlib import sha1
 from io import BytesIO
@@ -16,6 +17,7 @@ from fs.test import FSTestCases
 from ngrok import forward
 from pytest import fixture, mark, raises, skip
 from pytest_localserver.http import WSGIServer
+from quickxorhash import quickxorhash
 
 from .github import UploadSecret
 
@@ -238,7 +240,7 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 			data = source.read()
 			target.write(data)
 
-		hash_ = sha1() # noqa: S324
+		hash_ = quickxorhash()
 		hash_.update(data)
 
 		# It takes time for the server to calculate the hashes
@@ -246,13 +248,13 @@ class TestOneDriveFS(FSTestCases, TestCase, PyFsCompatLayer):
 		sleepTime = 5
 		for iteration in range(iterations):
 			info_ = self.fs.getinfo('DSCN0010.jpg')
-			if info_.get('hashes', 'SHA1') is not None:
+			if info_.get('hashes', 'quickXorHash') is not None:
 				break
 			warning(f'Hashes not calculated in {iteration * sleepTime}s')
 			sleep(sleepTime)
 		else:
 			skip(f'Hashes not calculated in {iterations * sleepTime}s')
-		self.assertEqual(hash_.hexdigest().upper(), info_.get('hashes', 'SHA1'))
+		self.assertEqual(b64encode(hash_.digest()).decode('utf-8'), info_.get('hashes', 'quickXorHash'))
 
 	def test_download_as_format(self):
 		with self.fs.open('a.md', 'w') as f:
