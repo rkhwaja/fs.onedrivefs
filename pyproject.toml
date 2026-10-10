@@ -111,6 +111,7 @@ dev = [
     "ruff>=0.16.1",
     "ngrok>=1.4.0",
     "pysentry-rs>=0.4.5",
+    "quickxorhash>=1.0.5",
 ]
 
 [tool.uv]

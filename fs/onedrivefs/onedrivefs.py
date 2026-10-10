@@ -398,8 +398,6 @@ class OneDriveFS(FS):
 			# The spec is at https://docs.microsoft.com/en-us/onedrive/developer/rest-api/resources/hashes
 			# CRC32 appears in the spec but not in the implementation
 			rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'crc32Hash', 'CRC32'))
-			# Standard SHA1
-			rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'sha1Hash', 'SHA1'))
 			# proprietary hash for change detection
 			rawInfo['hashes'].update(_UpdateDict(item['file']['hashes'], 'quickXorHash', 'quickXorHash'))
 		if 'tags' in item:
