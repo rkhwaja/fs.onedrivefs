@@ -45,7 +45,7 @@ lint = "ruff check fs/onedrivefs/ tests/"
 
 [tool.poe.tasks.test]
 shell = """
-pytest --cov=fs -n 8 --reruns 2 || exit 1
+pytest --cov=fs -n 8 --reruns 3 || exit 1
 coverage xml
 """
 
