@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
+from hashlib import algorithms_available
 from io import BytesIO
 from logging import getLogger
 from urllib.parse import urlencode
 
 from fs.base import FS
 from fs.enums import ResourceType
-from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, ResourceNotFound
+from fs.errors import DestinationExists, DirectoryExists, DirectoryExpected, DirectoryNotEmpty, FileExists, FileExpected, ResourceNotFound, UnsupportedHash
 from fs.info import Info
 from fs.mode import Mode
 from fs.path import basename, dirname
@@ -684,3 +685,9 @@ class OneDriveFS(FS):
 					_log.warning(f'Unexpected status: {jobStatus}')
 				if jobStatus['status'] == 'completed':
 					break
+
+	# workaround for problem with python 3.15
+	def hash(self, path, name):
+		if name not in algorithms_available:
+			raise UnsupportedHash(f"hash '{name}' is not supported")
+		return super().hash(path, name)
