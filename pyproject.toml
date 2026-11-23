@@ -1,6 +1,6 @@
 [project]
 name = "fs.onedrivefs"
-version = "2.0.0"
+version = "3.0.0"
 description = "Pyfilesystem2 implementation for OneDrive using Microsoft Graph API"
 maintainers = [
 	{ name = "Rehan KHwaja", email = "rehan@khwaja.name" }
@@ -21,8 +21,8 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "fs>=2.4.13,<3",
-    "niquests>=3.17.0",
+    "fitzyracing-fs>=2.4.18",
+    "niquests>=3.21.3",
     "requests-oauthlib>=1.2.0",
 ]
 
@@ -103,25 +103,20 @@ dev = [
     "pytest>=9.0.3",
     "pytest-localserver>=0.5.0",
     "pytest-cov>=2.9.0",
-    "pynacl>=1.5.0",
-    "cffi>=1.15.0 ; sys_platform == 'darwin'",
+    "pynacl>=1.6.2",
     "pytest-rerunfailures>=10",
     "poethepoet>=0.16.4",
     "pytest-xdist>=3.2.1",
     "ruff>=0.16.1",
     "ngrok>=1.4.0",
-    "pysentry-rs>=0.4.5",
+    "pysentry-rs>=0.5.0",
     "quickxorhash>=1.0.5",
 ]
 
 [tool.uv]
 constraint-dependencies = [
-    "requests>=2.33.0", # from audit
-    "setuptools<81",
-    "urllib3>=2.7.0", # from audit
 ]
 
 [tool.pysentry.ignore]
 ids = [
-    "PYSEC-2026-3447", # can't fix pyfilesystem
     ]
